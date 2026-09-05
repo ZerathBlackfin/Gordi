@@ -18,7 +18,7 @@ docker run -d \
   -e PUID=1000 \
   -e PGID=1000 \
   -e TZ=Europe/Paris \
-  ghcr.io/zerathblackfin/gordi:latest
+  zerathblackfin/gordi:latest
 ```
 
 Open `http://<server>:7373`, where `<server>` is the machine you started it on.
@@ -28,7 +28,7 @@ Or with docker-compose:
 ```yaml
 services:
   gordi:
-    image: ghcr.io/zerathblackfin/gordi:latest
+    image: zerathblackfin/gordi:latest
     container_name: gordi
     ports:
       - 7373:7373
@@ -42,6 +42,8 @@ services:
       TZ: "Europe/Paris"
     restart: unless-stopped
 ```
+
+The same image is on GHCR, as `ghcr.io/zerathblackfin/gordi`, if you prefer it.
 
 To build it yourself instead:
 
