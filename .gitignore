@@ -1,0 +1,19 @@
+# Build output. dist is emptied on every front build, but the folder itself has
+# to exist: go:embed refuses to compile without it.
+/gordi
+web/node_modules/
+web/dist/*
+!web/dist/.gitkeep
+
+# Runtime
+/data/
+.env
+
+# Go
+*.test
+coverage.out
+
+# macOS and editors
+.DS_Store
+.vscode/
+.idea/

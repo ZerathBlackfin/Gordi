@@ -1,0 +1,22 @@
+services:
+  gordi:
+    build: .
+    container_name: gordi
+    ports:
+      - "${GORDI_PORT:-7373}:7373"
+    volumes:
+      - ${GORDI_INPUT:-./media/inbox}:/input
+      - ${GORDI_OUTPUT:-./media/library}:/output
+      - ${GORDI_CONFIG:-./data}:/config
+    environment:
+      PUID: "${PUID:-0}"
+      PGID: "${PGID:-0}"
+      GORDI_LANG: "${GORDI_LANG:-en}"
+      GORDI_MODE: "${GORDI_MODE:-move}"
+      GORDI_SCAN_EVERY: "${GORDI_SCAN_EVERY:-60}"
+      GORDI_CONTACT: "${GORDI_CONTACT:-https://github.com/ZerathBlackfin/Gordi}"
+      GORDI_PREFETCH_EVERY: "${GORDI_PREFETCH_EVERY:-3}"
+      GORDI_PATTERN: "${GORDI_PATTERN:-{artist}/{album} ({year})/{track} - {title}}"
+      GORDI_PATTERN_MULTI: "${GORDI_PATTERN_MULTI:-{artist}/{album} ({year})/CD{disc:0}/{track} - {title}}"
+      TZ: "${TZ:-Europe/Paris}"
+    restart: unless-stopped
