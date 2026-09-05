@@ -12,6 +12,7 @@ import (
 
 	"gordi/internal/api"
 	"gordi/internal/app"
+	"gordi/internal/build"
 	"gordi/internal/config"
 	"gordi/internal/store"
 	"gordi/web"
@@ -62,7 +63,7 @@ func run() error {
 		}
 	}()
 
-	slog.Info("gordi starting", "address", cfg.Addr, "input", cfg.Input, "output", cfg.Output, "mode", cfg.Mode)
+	slog.Info("gordi starting", "version", build.Version, "address", cfg.Addr, "input", cfg.Input, "output", cfg.Output, "mode", cfg.Mode)
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}

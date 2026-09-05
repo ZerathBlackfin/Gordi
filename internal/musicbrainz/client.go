@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"regexp"
 
+	"gordi/internal/build"
 	"gordi/internal/i18n"
 	"sort"
 	"strconv"
@@ -93,10 +94,15 @@ type Client struct {
 	lang    i18n.Lang
 }
 
+// MusicBrainz asks that a client name itself and leave a way to be reached.
+func userAgent(contact string) string {
+	return fmt.Sprintf("Gordi/%s ( %s )", build.Version, contact)
+}
+
 func New(contact string) *Client {
 	return &Client{
 		http:    &http.Client{Timeout: 15 * time.Second},
-		agent:   fmt.Sprintf("Gordi/0.1 ( %s )", contact),
+		agent:   userAgent(contact),
 		base:    baseURL,
 		lang:    i18n.EN,
 		limiter: &limiter{every: time.Second},
@@ -156,7 +162,7 @@ func (f Filters) clauses() []string {
 func (c *Client) SetContact(contact string) {
 	c.agentMu.Lock()
 	defer c.agentMu.Unlock()
-	c.agent = fmt.Sprintf("Gordi/0.1 ( %s )", contact)
+	c.agent = userAgent(contact)
 }
 
 func (c *Client) SetLang(l i18n.Lang) {

@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"gordi/internal/build"
 )
 
 func TestGetRetriesAfter503(t *testing.T) {
@@ -61,7 +63,9 @@ func TestUserAgentCarriesContact(t *testing.T) {
 	if _, err := testClient(srv.URL).Search(context.Background(), "", "The Dark Side of the Moon", Filters{}, 1); err != nil {
 		t.Fatal(err)
 	}
-	if ua := <-received; ua != "Gordi/0.1 ( contact@example.fr )" {
+	// The version comes from the build, so the test pins the shape MusicBrainz
+	// asks for, not the number.
+	if ua := <-received; ua != "Gordi/"+build.Version+" ( contact@example.fr )" {
 		t.Fatalf("unexpected user-agent: %q", ua)
 	}
 }
