@@ -44,6 +44,8 @@ type Album struct {
 	Status     string    `json:"status"`
 	TrackCount int       `json:"track_count"`
 	LastSeen   time.Time `json:"last_seen"`
+
+	Indexed bool `json:"indexed"`
 }
 
 type SyncResult struct {
@@ -323,6 +325,16 @@ func (s *Store) AlbumsToPrefetch(keyStart, keyEnd string, limit int) (albums []A
 
 func unixNano(v []byte) time.Time {
 	return time.Unix(0, int64(binary.BigEndian.Uint64(v)))
+}
+
+func (s *Store) CacheFresh(key string) bool {
+	fresh := false
+	s.db.View(func(tx *bbolt.Tx) error {
+		expiry := tx.Bucket(bCacheExp).Get([]byte(key))
+		fresh = expiry != nil && time.Now().Before(unixNano(expiry))
+		return nil
+	})
+	return fresh
 }
 
 func (s *Store) CacheGet(key string) ([]byte, bool) {

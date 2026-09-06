@@ -1,21 +1,21 @@
-
-let inFlight = $state(0)
-let since = $state(0)
+let calls = $state([])
+let seq = 0
 
 export const waiting = {
   get active() {
-    return inFlight > 0
+    return calls.length > 0
   },
   get since() {
-    return since
+    return calls[0]?.at ?? 0
   },
 }
 
-export function start() {
-  if (inFlight === 0) since = Date.now()
-  inFlight++
+export function start(path) {
+  const id = ++seq
+  calls = [...calls, { id, path, at: Date.now() }]
+  return id
 }
 
-export function finish() {
-  inFlight = Math.max(0, inFlight - 1)
+export function finish(id) {
+  calls = calls.filter((c) => c.id !== id)
 }

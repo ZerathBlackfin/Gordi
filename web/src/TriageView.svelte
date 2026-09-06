@@ -4,11 +4,12 @@
   import { tintFor, inkOn } from './tint.js'
   import { duration, size, durationGap } from './format.js'
   import ReleasePicker from './ReleasePicker.svelte'
+  import Loading from './Loading.svelte'
   import { reveal } from './reveal.js'
   import { compare, split, labelFor, linkFor } from './diff.js'
   import { t } from './i18n.svelte.js'
 
-  let { albums = [], mode = 'move', inbox = '', onchange } = $props()
+  let { albums = [], mode = 'move', inbox = '', prefetch = null, onchange } = $props()
 
   let selectedId = $state(null)
   let album = $state(null)
@@ -129,6 +130,10 @@
 
     if (e.key === 'Enter' && readyToFile && e.target === document.body) file()
   }
+
+  const indexed = $derived(
+    prefetch?.prefetch_total ? `${prefetch.prefetch_done} / ${prefetch.prefetch_total}` : '',
+  )
 
   const rows = $derived.by(() => {
     if (!album) return []
@@ -339,6 +344,12 @@
               title={`${a.title || a.rel_dir} — ${a.artist || t('queue.unknownArtist')}`}
             >
               <span class="name">{a.title || a.rel_dir}</span>
+              <span
+                class="ready"
+                class:on={a.indexed}
+                class:working={loading && a.id === selectedId}
+                title={a.indexed ? t('queue.indexed') : t('queue.pending')}
+              ></span>
               <span class="sub muted">{a.artist || t('queue.unknownArtist')}</span>
               <span class="figures mono muted">{a.track_count} · {duration(a.length)}</span>
             </button>
@@ -350,7 +361,11 @@
 
   <section class="workspace">
     {#if !album}
-      <p class="empty muted">{error || (loading ? t('album.reading') : '')}</p>
+      {#if error}
+        <p class="empty muted">{error}</p>
+      {:else if loading}
+        <Loading label={t('album.indexing')} hint={indexed} />
+      {/if}
     {:else}
       {#key album.id}
       <header class="hero" style:--cover={`url(/api/albums/${album.id}/cover)`}>
@@ -383,7 +398,7 @@
           </p>
         </div>
       {:else if loading && !release}
-        <p class="empty muted">{t('album.searching')}</p>
+        <Loading label={t('album.indexing')} hint={indexed} compact />
       {:else if !release}
         <div class="panel">
           <p class="verdict-title">{t('album.noRelease')}</p>
@@ -730,12 +745,40 @@
   }
 
   .name {
-    grid-column: 1 / -1;
     font-weight: 500;
     line-height: 1.3;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .ready {
+    align-self: center;
+    justify-self: end;
+    width: 7px;
+    height: 7px;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+  }
+
+  .ready.on {
+    background: var(--ok);
+    border-color: var(--ok);
+  }
+
+  .ready.working {
+    border-color: var(--brand);
+    animation: waiting 3.15s ease-in-out infinite;
+  }
+
+  @keyframes waiting {
+    0%,
+    100% {
+      opacity: 0.3;
+    }
+    50% {
+      opacity: 1;
+    }
   }
 
   .sub {

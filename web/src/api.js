@@ -1,11 +1,11 @@
 import { start, finish } from './mb.svelte.js'
 
-async function tracked(call) {
-  start()
+async function tracked(path) {
+  const id = start(path)
   try {
-    return await call()
+    return await request(path)
   } finally {
-    finish()
+    finish(id)
   }
 }
 
@@ -38,12 +38,12 @@ export function getCandidates(id, filters = {}, force = false) {
   }
   if (force) params.set('force', '1')
   const query = params.toString()
-  return tracked(() => request(`/albums/${id}/candidates${query ? `?${query}` : ''}`))
+  return tracked(`/albums/${id}/candidates${query ? `?${query}` : ''}`)
 }
 
 export const getFiled = (limit = 50) => request(`/filed?limit=${limit}`)
 
-export const getRelease = (mbid) => tracked(() => request(`/releases/${mbid}`))
+export const getRelease = (mbid) => tracked(`/releases/${mbid}`)
 export const getPlan = (id, releaseId, mode) =>
   request(`/albums/${id}/plan?release_id=${encodeURIComponent(releaseId)}&mode=${mode}`)
 

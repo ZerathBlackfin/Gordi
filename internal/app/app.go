@@ -125,6 +125,17 @@ type StatusMB struct {
 	PrefetchTotal int     `json:"prefetch_total"`
 }
 
+func (a *App) Albums(status string) ([]store.Album, error) {
+	albums, err := a.Store.List(status)
+	if err != nil {
+		return nil, err
+	}
+	for i := range albums {
+		albums[i].Indexed = a.Store.CacheFresh(candidatesKey(&albums[i], musicbrainz.Filters{}))
+	}
+	return albums, nil
+}
+
 func (a *App) Status() (Status, error) {
 
 	a.mu.Lock()

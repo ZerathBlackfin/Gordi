@@ -26,7 +26,7 @@ func Handler(a *app.App, web fs.FS) http.Handler {
 	})
 
 	mux.HandleFunc("GET /api/albums", func(w http.ResponseWriter, r *http.Request) {
-		albums, err := a.Store.List(r.URL.Query().Get("status"))
+		albums, err := a.Albums(r.URL.Query().Get("status"))
 		if err != nil {
 			fail(w, http.StatusInternalServerError, err)
 			return

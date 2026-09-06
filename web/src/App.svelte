@@ -7,6 +7,7 @@
   import Logo from './Logo.svelte'
   import { route, navigate } from './router.svelte.js'
   import { waiting } from './mb.svelte.js'
+  import { loader } from './loading.svelte.js'
   import { t, setLanguage } from './i18n.svelte.js'
   import { reveal } from './reveal.js'
   import './theme.svelte.js'
@@ -49,10 +50,17 @@
 
   onMount(() => {
     load()
-    const clockTimer = setInterval(load, 8000)
+
+    let timer = 0
+    const poll = async () => {
+      await load()
+      timer = setTimeout(poll, waiting.active ? 1500 : 8000)
+    }
+    timer = setTimeout(poll, 8000)
+
     const clock = setInterval(() => (now = Date.now()), 500)
     return () => {
-      clearInterval(clockTimer)
+      clearTimeout(timer)
       clearInterval(clock)
     }
   })
@@ -70,7 +78,7 @@
   </a>
 
   <div class="tools">
-    {#if waiting.active}
+    {#if waiting.active && !loader.onScreen}
       <span class="waiting" title={t('bar.waitingHint')}>
         {t('bar.waiting', { n: waitSeconds })}
       </span>
@@ -105,7 +113,13 @@
   {:else if onFiled}
     <FiledPage />
   {:else}
-    <TriageView {albums} mode={status?.mode ?? 'move'} inbox={status?.input ?? ''} onchange={load} />
+    <TriageView
+      {albums}
+      {prefetch}
+      mode={status?.mode ?? 'move'}
+      inbox={status?.input ?? ''}
+      onchange={load}
+    />
   {/if}
 </main>
 
@@ -145,11 +159,41 @@
   }
 
   .waiting {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
     font-size: 12px;
     color: var(--tint-ink);
     border: 1px solid var(--line);
     border-radius: 999px;
     padding: 1px 10px;
+  }
+
+  .waiting::before {
+    content: '';
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--brand);
+    animation: blip 2.1s ease-in-out infinite;
+  }
+
+  @keyframes blip {
+    0%,
+    45%,
+    100% {
+      opacity: 0.3;
+    }
+    12% {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .waiting::before {
+      animation-name: none;
+      opacity: 0.7;
+    }
   }
 
   .reveal {
