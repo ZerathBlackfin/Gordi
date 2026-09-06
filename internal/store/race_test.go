@@ -36,7 +36,7 @@ func TestConcurrentScanAndRead(t *testing.T) {
 			for j := 0; j < 50; j++ {
 				s.List("")
 				s.KnownTracks()
-				s.AlbumsToPrefetch("candidates:", ":", 5)
+				s.AlbumsToPrefetch("candidates:", ":", "cool:", 5)
 				s.CachePut(fmt.Sprintf("k%d", n), []byte("x"), time.Minute)
 				s.CacheGet(fmt.Sprintf("k%d", n))
 			}

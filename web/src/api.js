@@ -20,14 +20,17 @@ async function request(path, options) {
   return res.json()
 }
 
-export const getStatus = () => request('/status')
+const shortWait = () => ({ signal: AbortSignal.timeout(10000) })
+
+export const getStatus = () => request('/status', shortWait())
 export const getSettings = () => request('/settings')
 export const previewPattern = (body) =>
   request('/settings/preview', { method: 'POST', body: JSON.stringify(body) })
 export const saveSettings = (changes) =>
   request('/settings', { method: 'POST', body: JSON.stringify(changes) })
 export const clearCache = () => request('/settings/cache/clear', { method: 'POST' })
-export const getAlbums = (status) => request(`/albums?status=${encodeURIComponent(status ?? '')}`)
+export const getAlbums = (status) =>
+  request(`/albums?status=${encodeURIComponent(status ?? '')}`, shortWait())
 export const getAlbum = (id) => request(`/albums/${id}`)
 export const scan = () => request('/scan', { method: 'POST' })
 

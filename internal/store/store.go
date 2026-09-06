@@ -293,10 +293,15 @@ func (s *Store) KnownTracks() (map[string]library.Track, error) {
 	return known, err
 }
 
-func (s *Store) AlbumsToPrefetch(keyStart, keyEnd string, limit int) (albums []Album, total, remaining int, err error) {
+func (s *Store) AlbumsToPrefetch(keyStart, keyEnd, coolStart string, limit int) (albums []Album, total, remaining int, err error) {
 	err = s.db.View(func(tx *bbolt.Tx) error {
 		expiries, tracks := tx.Bucket(bCacheExp), tx.Bucket(bTracks)
 		now := time.Now()
+
+		fresh := func(key string) bool {
+			v := expiries.Get([]byte(key))
+			return v != nil && now.Before(unixNano(v))
+		}
 
 		return tx.Bucket(bAlbums).ForEach(func(k, raw []byte) error {
 			var e entry
@@ -308,11 +313,14 @@ func (s *Store) AlbumsToPrefetch(keyStart, keyEnd string, limit int) (albums []A
 			}
 			total++
 
-			key := keyStart + strconv.FormatInt(e.Album.ID, 10) + keyEnd
-			if v := expiries.Get([]byte(key)); v != nil && now.Before(unixNano(v)) {
+			id := strconv.FormatInt(e.Album.ID, 10)
+			if fresh(keyStart + id + keyEnd) {
 				return nil
 			}
 			remaining++
+			if fresh(coolStart + id) {
+				return nil
+			}
 			if len(albums) < limit {
 				e.Album.TrackCount = countTracks(tracks.Get(k))
 				albums = append(albums, e.Album)

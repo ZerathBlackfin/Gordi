@@ -78,10 +78,7 @@
       if (mine !== token) return
       album = a
       releases = p.releases ?? []
-      const obvious =
-        releases.find((r) => r.from_tags) ??
-        releases.find((r) => r.track_count === a.track_count) ??
-        releases[0]
+      const obvious = releases.find((r) => r.id === p.selected) ?? releases[0]
       if (obvious) await select(obvious, mine)
     } catch (e) {
       if (mine === token) error = e.message
@@ -130,6 +127,8 @@
 
     if (e.key === 'Enter' && readyToFile && e.target === document.body) file()
   }
+
+  const busyOn = (a) => (loading && a.id === selectedId) || a.id === prefetch?.indexing
 
   const indexed = $derived(
     prefetch?.prefetch_total ? `${prefetch.prefetch_done} / ${prefetch.prefetch_total}` : '',
@@ -347,8 +346,8 @@
               <span
                 class="ready"
                 class:on={a.indexed}
-                class:working={loading && a.id === selectedId}
-                title={a.indexed ? t('queue.indexed') : t('queue.pending')}
+                class:working={busyOn(a)}
+                title={busyOn(a) ? t('queue.indexing') : a.indexed ? t('queue.indexed') : t('queue.pending')}
               ></span>
               <span class="sub muted">{a.artist || t('queue.unknownArtist')}</span>
               <span class="figures mono muted">{a.track_count} · {duration(a.length)}</span>
@@ -767,14 +766,15 @@
   }
 
   .ready.working {
+    background: var(--brand);
     border-color: var(--brand);
-    animation: waiting 3.15s ease-in-out infinite;
+    animation: waiting 1.6s ease-in-out infinite;
   }
 
   @keyframes waiting {
     0%,
     100% {
-      opacity: 0.3;
+      opacity: 0.35;
     }
     50% {
       opacity: 1;

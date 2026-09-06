@@ -190,7 +190,11 @@ func (a *App) setInt(key string, value, fallback, min, max int) error {
 	return a.Store.PutSetting(key, strconv.Itoa(value))
 }
 
-func (a *App) ClearCache() (int, error) { return a.Store.ClearCache() }
+func (a *App) ClearCache() (int, error) {
+	n, err := a.Store.ClearCache()
+	a.Nudge()
+	return n, err
+}
 
 func (a *App) validateMode(v string) error {
 	if v != string(config.ModeCopy) && v != string(config.ModeMove) {

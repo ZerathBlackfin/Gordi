@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -27,8 +28,9 @@ type App struct {
 	mbCalls int
 	mbSince time.Time
 
-	prefetchDone  int
-	prefetchTotal int
+	indexing int64
+
+	wake chan struct{}
 
 	group group
 
@@ -41,6 +43,7 @@ func New(cfg config.Config, st *store.Store) *App {
 		Cfg:   cfg,
 		Store: st,
 		MB:    musicbrainz.New(cfg.MBContact),
+		wake:  make(chan struct{}, 1),
 	}
 }
 
@@ -123,6 +126,7 @@ type StatusMB struct {
 	SinceSeconds  float64 `json:"since_seconds"`
 	PrefetchDone  int     `json:"prefetch_done"`
 	PrefetchTotal int     `json:"prefetch_total"`
+	Indexing      int64   `json:"indexing"`
 }
 
 func (a *App) Albums(status string) ([]store.Album, error) {
@@ -131,7 +135,7 @@ func (a *App) Albums(status string) ([]store.Album, error) {
 		return nil, err
 	}
 	for i := range albums {
-		albums[i].Indexed = a.Store.CacheFresh(candidatesKey(&albums[i], musicbrainz.Filters{}))
+		albums[i].Indexed = a.Store.CacheFresh(readyKeyPrefix + strconv.FormatInt(albums[i].ID, 10))
 	}
 	return albums, nil
 }
@@ -153,9 +157,10 @@ func (a *App) Status() (Status, error) {
 		t := a.lastScan
 		s.LastScan = &t
 	}
-	s.MB = StatusMB{
-		PrefetchDone:  a.prefetchDone,
-		PrefetchTotal: a.prefetchTotal,
+	s.MB = StatusMB{Indexing: a.indexing}
+	if _, total, remaining, err := a.toIndex(0); err == nil {
+		s.MB.PrefetchTotal = total
+		s.MB.PrefetchDone = total - remaining
 	}
 	if a.mbCalls > 0 {
 		s.MB.SinceSeconds = time.Since(a.mbSince).Seconds()

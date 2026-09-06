@@ -22,6 +22,7 @@ func (a *App) Plan(ctx context.Context, albumID int64, releaseID string, mode ap
 		return apply.Plan{}, err
 	}
 	p.Mode = string(mode)
+	a.markReady(album)
 	return p, nil
 }
 

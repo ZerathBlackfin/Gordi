@@ -1,10 +1,12 @@
 package store
 
 import (
-	"go.etcd.io/bbolt"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
+
+	"go.etcd.io/bbolt"
 
 	"gordi/internal/library"
 )
@@ -214,11 +216,49 @@ func TestSyncForgetsFiledAndVanishedAlbum(t *testing.T) {
 func TestAlbumsToPrefetchEmptyQueue(t *testing.T) {
 	s := openTestStore(t)
 
-	albums, total, remaining, err := s.AlbumsToPrefetch("mb:", ":f", 1)
+	albums, total, remaining, err := s.AlbumsToPrefetch("mb:", ":f", "cool:", 1)
 	if err != nil {
 		t.Fatalf("empty queue: %v", err)
 	}
 	if len(albums) != 0 || total != 0 || remaining != 0 {
 		t.Fatalf("expected 0/0/0, got %d/%d/%d", len(albums), total, remaining)
+	}
+}
+
+func TestAlbumsToPrefetchLeavesDoneAndCooledAlone(t *testing.T) {
+	s := openTestStore(t)
+	if _, err := s.Sync([]library.Album{
+		{RelDir: "done", Title: "Done"},
+		{RelDir: "cooled", Title: "Cooled"},
+		{RelDir: "todo", Title: "Todo"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	queue, err := s.List(StatusPending)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range queue {
+		switch a.RelDir {
+		case "done":
+			s.CachePut("ready:"+strconv.FormatInt(a.ID, 10), []byte("1"), time.Hour)
+		case "cooled":
+			s.CachePut("cool:"+strconv.FormatInt(a.ID, 10), []byte("1"), time.Hour)
+		}
+	}
+
+	albums, total, remaining, err := s.AlbumsToPrefetch("ready:", "", "cool:", 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 3 {
+		t.Fatalf("expected 3 albums in the queue, got %d", total)
+	}
+	if remaining != 2 {
+		t.Fatalf("a cooled album still has to be done, expected 2 remaining, got %d", remaining)
+	}
+	if len(albums) != 1 || albums[0].RelDir != "todo" {
+		t.Fatalf("only the untouched album may be handed out, got %v", albums)
 	}
 }

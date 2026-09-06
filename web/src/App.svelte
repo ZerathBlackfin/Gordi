@@ -36,6 +36,15 @@
     }
   }
 
+  async function refresh() {
+    try {
+      status = await api.getStatus()
+      error = ''
+    } catch (e) {
+      error = e.message
+    }
+  }
+
   async function rescan() {
     scanning = true
     try {
@@ -52,16 +61,31 @@
     load()
 
     let timer = 0
+    let queueRead = Date.now()
     const poll = async () => {
-      await load()
-      timer = setTimeout(poll, waiting.active ? 1500 : 8000)
+      try {
+        if (Date.now() - queueRead >= 8000) {
+          queueRead = Date.now()
+          await load()
+        } else {
+          await refresh()
+        }
+      } finally {
+        timer = setTimeout(poll, waiting.active || prefetch?.indexing ? 1500 : 8000)
+      }
     }
     timer = setTimeout(poll, 8000)
+
+    const wake = () => {
+      if (!document.hidden) load()
+    }
+    document.addEventListener('visibilitychange', wake)
 
     const clock = setInterval(() => (now = Date.now()), 500)
     return () => {
       clearTimeout(timer)
       clearInterval(clock)
+      document.removeEventListener('visibilitychange', wake)
     }
   })
 </script>
