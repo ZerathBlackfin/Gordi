@@ -19,6 +19,8 @@ services:
       GORDI_SCAN_EVERY: "${GORDI_SCAN_EVERY:-60}"
       GORDI_CONTACT: "${GORDI_CONTACT:-https://github.com/ZerathBlackfin/Gordi}"
       GORDI_PREFETCH_EVERY: "${GORDI_PREFETCH_EVERY:-3}"
+      GORDI_COVER: "${GORDI_COVER:-}"
+      GORDI_COVER_EMBED: "${GORDI_COVER_EMBED:-}"
       GORDI_PATTERN: "${GORDI_PATTERN:-{artist}/{album} ({year})/{track} - {title}}"
       GORDI_PATTERN_MULTI: "${GORDI_PATTERN_MULTI:-{artist}/{album} ({year})/CD{disc:0}/{track} - {title}}"
       TZ: "${TZ:-Europe/Paris}"

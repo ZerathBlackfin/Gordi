@@ -4,6 +4,7 @@ import (
 	"gordi/internal/i18n"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -30,6 +31,9 @@ type Config struct {
 
 	Pattern      string
 	PatternMulti string
+
+	Cover      bool
+	CoverEmbed bool
 }
 
 func Load() Config {
@@ -45,6 +49,8 @@ func Load() Config {
 		PrefetchEvery: time.Duration(envInt("GORDI_PREFETCH_EVERY", 3)) * time.Second,
 		Pattern:       env("GORDI_PATTERN", "{artist}/{album} ({year})/{track} - {title}"),
 		PatternMulti:  env("GORDI_PATTERN_MULTI", "{artist}/{album} ({year})/CD{disc:0}/{track} - {title}"),
+		Cover:         envBool("GORDI_COVER"),
+		CoverEmbed:    envBool("GORDI_COVER_EMBED"),
 	}
 	if c.Mode != ModeMove && c.Mode != ModeCopy {
 		c.Mode = ModeMove
@@ -57,6 +63,14 @@ func env(key, def string) string {
 		return v
 	}
 	return def
+}
+
+func envBool(key string) bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(key))) {
+	case "1", "true", "yes", "on":
+		return true
+	}
+	return false
 }
 
 func envInt(key string, def int) int {

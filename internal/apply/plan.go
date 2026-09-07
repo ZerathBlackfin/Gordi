@@ -2,6 +2,7 @@ package apply
 
 import (
 	"fmt"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -35,10 +36,37 @@ type PlannedTrack struct {
 }
 
 type Plan struct {
-	Mode     string         `json:"mode"`
-	Tracks   []PlannedTrack `json:"tracks"`
-	Ignored  []string       `json:"ignored"`
-	Warnings []string       `json:"warnings"`
+	Mode       string         `json:"mode"`
+	Tracks     []PlannedTrack `json:"tracks"`
+	Ignored    []string       `json:"ignored"`
+	Warnings   []string       `json:"warnings"`
+	Cover      string         `json:"cover"`
+	CoverEmbed bool           `json:"cover_embed"`
+
+	Art Art `json:"-"`
+}
+
+type Art struct {
+	Image []byte
+	Embed bool
+}
+
+const CoverFile = "cover.jpg"
+
+func CoverPath(p Plan) string {
+	if len(p.Tracks) == 0 {
+		return ""
+	}
+	dir := path.Dir(filepath.ToSlash(p.Tracks[0].Destination))
+	for _, t := range p.Tracks[1:] {
+		for dir != "." && !strings.HasPrefix(filepath.ToSlash(t.Destination), dir+"/") {
+			dir = path.Dir(dir)
+		}
+	}
+	if dir == "." {
+		return CoverFile
+	}
+	return dir + "/" + CoverFile
 }
 
 func Prepare(album library.Album, release musicbrainz.ReleaseDetail, patterns Patterns, lang i18n.Lang) (Plan, error) {

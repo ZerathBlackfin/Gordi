@@ -410,10 +410,11 @@
           <p class="muted">
             {t('action.filedDetail', { n: filed.filed, folder: '' })}<span class="mono"
               >{folder}</span
-            >{#if filed.deleted}, {t('action.originalsDeleted')}{/if}{#if filed.ignored?.length}, {t(
-                'action.leftBehind',
-                { n: filed.ignored.length },
-              )}{/if}.
+            >{#if filed.deleted}, {t('action.originalsDeleted')}{/if}{#if filed.cover}, {t(
+                'action.coverAdded',
+              )}{/if}{#if filed.ignored?.length}, {t('action.leftBehind', {
+                n: filed.ignored.length,
+              })}{/if}.
           </p>
         </div>
       {:else if loading && !release}
@@ -719,6 +720,9 @@
             <span class="mono">{folder}</span>
             {#if mode === 'move' && plan?.ignored?.length}
               <span class="muted small">{t('action.leftBehind', { n: plan.ignored.length })}</span>
+            {/if}
+            {#if plan?.cover || plan?.cover_embed}
+              <span class="muted small">{t('action.cover')}</span>
             {/if}
           </p>
           <button class="file-button" onclick={file} disabled={!readyToFile}>

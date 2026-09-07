@@ -21,6 +21,8 @@ import (
 
 const baseURL = "https://musicbrainz.org/ws/2"
 
+const coverURL = "https://coverartarchive.org"
+
 type Release struct {
 	ID             string `json:"id"`
 	Title          string `json:"title"`
@@ -86,6 +88,7 @@ type ReleaseDetail struct {
 
 type Client struct {
 	http    *http.Client
+	art     *http.Client
 	base    string
 	limiter *limiter
 
@@ -102,6 +105,7 @@ func userAgent(contact string) string {
 func New(contact string) *Client {
 	return &Client{
 		http:    &http.Client{Timeout: 15 * time.Second},
+		art:     &http.Client{Timeout: 60 * time.Second},
 		agent:   userAgent(contact),
 		base:    baseURL,
 		lang:    i18n.EN,
@@ -438,6 +442,54 @@ func (c *Client) Release(ctx context.Context, mbid string) (*ReleaseDetail, erro
 	}
 	d.TrackCount = len(d.Tracks)
 	return d, nil
+}
+
+var coverSizes = []string{"front-1200", "front-500"}
+
+const maxCoverBytes = 12 << 20
+
+func (c *Client) CoverArt(ctx context.Context, mbid string) ([]byte, error) {
+	if strings.TrimSpace(mbid) == "" {
+		return nil, fmt.Errorf("empty identifier")
+	}
+
+	for _, size := range coverSizes {
+		image, err := c.coverAttempt(ctx, coverURL+"/release/"+url.PathEscape(mbid)+"/"+size)
+		if err != nil {
+			return nil, err
+		}
+		if image != nil {
+			return image, nil
+		}
+	}
+	return nil, nil
+}
+
+func (c *Client) coverAttempt(ctx context.Context, address string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", c.userAgent())
+
+	res, err := c.art.Do(req)
+	if err != nil {
+		return nil, i18n.Errorf(c.currentLang(), "mb.unreachable", err)
+	}
+	defer res.Body.Close()
+
+	switch {
+	case res.StatusCode == http.StatusOK:
+		image, err := io.ReadAll(io.LimitReader(res.Body, maxCoverBytes))
+		if err != nil {
+			return nil, err
+		}
+		return image, nil
+	case res.StatusCode == http.StatusNotFound:
+		return nil, nil
+	default:
+		return nil, i18n.Errorf(c.currentLang(), "mb.response", res.Status, "")
+	}
 }
 
 func genreNames(genres []genreJSON) []string {

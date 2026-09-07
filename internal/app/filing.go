@@ -22,6 +22,12 @@ func (a *App) Plan(ctx context.Context, albumID int64, releaseID string, mode ap
 		return apply.Plan{}, err
 	}
 	p.Mode = string(mode)
+	if release.CoverURL != "" {
+		if a.CoverWanted() {
+			p.Cover = apply.CoverPath(p)
+		}
+		p.CoverEmbed = a.CoverEmbedded()
+	}
 	a.markReady(album)
 	return p, nil
 }
@@ -36,6 +42,19 @@ func (a *App) Apply(ctx context.Context, albumID int64, releaseID string, mode a
 		return apply.Result{}, err
 	}
 	p.Mode = string(mode)
+	wantFile, wantEmbed := a.CoverWanted(), a.CoverEmbedded()
+	if (wantFile || wantEmbed) && release.CoverURL != "" {
+		image, err := a.MB.CoverArt(ctx, release.ID)
+		if err != nil || len(image) == 0 {
+			slog.Warn("cover not fetched", "release", release.ID, "err", err)
+		} else {
+			if wantFile {
+				p.Cover = apply.CoverPath(p)
+			}
+			p.CoverEmbed = wantEmbed
+			p.Art = apply.Art{Image: image, Embed: wantEmbed}
+		}
+	}
 
 	res, err := apply.Execute(p, a.Cfg.Input, a.Cfg.Output, mode, a.Lang())
 	if err != nil {

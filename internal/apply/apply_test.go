@@ -412,3 +412,25 @@ func TestEveryFieldIsTranslatedInEveryLanguage(t *testing.T) {
 		}
 	}
 }
+
+func TestCoverSitsAboveTheDiscFolders(t *testing.T) {
+	for _, c := range []struct {
+		name         string
+		destinations []string
+		want         string
+	}{
+		{"single disc", []string{"A/Album/01.flac", "A/Album/02.flac"}, "A/Album/cover.jpg"},
+		{"several discs", []string{"A/Album/CD1/01.flac", "A/Album/CD2/01.flac"}, "A/Album/cover.jpg"},
+		{"no folder", []string{"01.flac"}, "cover.jpg"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			var p Plan
+			for _, d := range c.destinations {
+				p.Tracks = append(p.Tracks, PlannedTrack{Destination: filepath.FromSlash(d)})
+			}
+			if got := CoverPath(p); got != c.want {
+				t.Errorf("got %q, wanted %q", got, c.want)
+			}
+		})
+	}
+}

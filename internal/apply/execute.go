@@ -26,6 +26,7 @@ type Result struct {
 	Files   []string `json:"files"`
 	Deleted int      `json:"deleted"`
 	Ignored []string `json:"ignored"`
+	Cover   string   `json:"cover"`
 }
 
 func Execute(p Plan, inbox, libraryDir string, mode Mode, lang i18n.Lang) (Result, error) {
@@ -53,9 +54,14 @@ func Execute(p Plan, inbox, libraryDir string, mode Mode, lang i18n.Lang) (Resul
 		}
 	}
 
+	var embedded []byte
+	if p.Art.Embed {
+		embedded = p.Art.Image
+	}
+
 	for i, track := range p.Tracks {
 		source := filepath.Join(inbox, filepath.FromSlash(track.Source))
-		if err := copyAndTag(source, destinations[i], track.Tags, lang); err != nil {
+		if err := copyAndTag(source, destinations[i], track.Tags, embedded, lang); err != nil {
 			rollback()
 			return res, fmt.Errorf("%s : %w", track.Source, err)
 		}
@@ -63,6 +69,15 @@ func Execute(p Plan, inbox, libraryDir string, mode Mode, lang i18n.Lang) (Resul
 		res.Files = append(res.Files, track.Destination)
 	}
 	res.Filed = len(written)
+
+	if p.Cover != "" && len(p.Art.Image) > 0 {
+		saved, err := writeCover(libraryDir, p.Cover, p.Art.Image, lang)
+		if err != nil {
+			slog.Warn("cover not written", "file", p.Cover, "err", err)
+		} else if saved {
+			res.Cover = p.Cover
+		}
+	}
 
 	if mode == ModeMove {
 		for _, track := range p.Tracks {
@@ -78,7 +93,7 @@ func Execute(p Plan, inbox, libraryDir string, mode Mode, lang i18n.Lang) (Resul
 	return res, nil
 }
 
-func copyAndTag(source, dest string, tags map[string][]string, lang i18n.Lang) error {
+func copyAndTag(source, dest string, tags map[string][]string, image []byte, lang i18n.Lang) error {
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return err
 	}
@@ -110,10 +125,32 @@ func copyAndTag(source, dest string, tags map[string][]string, lang i18n.Lang) e
 	if err := taglib.WriteTags(tmpName, tags, taglib.Clear); err != nil {
 		return fmt.Errorf("%s: %w", i18n.T(lang, "filing.writingTags"), err)
 	}
+	if len(image) > 0 {
+		if err := taglib.WriteImageOptions(tmpName, image, 0, "Front Cover", "", "image/jpeg"); err != nil {
+			slog.Warn("cover not embedded", "file", dest, "err", err)
+		}
+	}
 	if err := os.Chmod(tmpName, 0o644); err != nil {
 		return err
 	}
 	return os.Rename(tmpName, dest)
+}
+
+func writeCover(libraryDir, relative string, image []byte, lang i18n.Lang) (bool, error) {
+	dest, err := safeDestination(libraryDir, relative, lang)
+	if err != nil {
+		return false, err
+	}
+	if _, err := os.Stat(dest); err == nil {
+		return false, nil
+	}
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+		return false, err
+	}
+	if err := os.WriteFile(dest, image, 0o644); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func safeDestination(libraryDir, relative string, lang i18n.Lang) (string, error) {

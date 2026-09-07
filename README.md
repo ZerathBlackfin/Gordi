@@ -93,6 +93,8 @@ Everything comes from the environment. The naming patterns and a few preferences
 | `GORDI_PREFETCH_EVERY` | `3` | seconds between prefetches, `0` disables |
 | `GORDI_PATTERN` | see below | tree for an ordinary album |
 | `GORDI_PATTERN_MULTI` | see below | tree for a multi-disc album |
+| `GORDI_COVER` | off | write `cover.jpg` beside the album |
+| `GORDI_COVER_EMBED` | off | embed the cover in every file |
 | `PUID` / `PGID` | `0` | who the files belong to (see User and group) |
 | `TZ` | `Europe/Paris` | timezone |
 
@@ -106,6 +108,12 @@ several discs    {artist}/{album} ({year})/CD{disc:0}/{track} - {title}
 ```
 
 Fields: `{artist}` `{album}` `{year}` `{track}` `{title}` `{disc}` `{format}`. A slash makes a folder, the extension is added automatically, and `{track:000}` sets the padding. You can change them under `/settings`.
+
+## Cover art
+
+Off by default. Gordi can fetch the front cover from the [Cover Art Archive](https://coverartarchive.org), the images MusicBrainz carries for the very release you picked. Two independent settings, both under `/settings`: write a `cover.jpg` in the album folder, and embed the image in the files. Either one on its own is fine.
+
+Nothing is fetched when the release carries no image, an existing `cover.jpg` is never replaced, and a cover that cannot be written never costs you the filing.
 
 ## Before it writes anything
 

@@ -20,6 +20,8 @@ const (
 	keyPrefetchEvery = "prefetch_every"
 	keyMBContact     = "mb_contact"
 	keyLang          = "lang"
+	keyCover         = "cover"
+	keyCoverEmbed    = "cover_embed"
 )
 
 type Values struct {
@@ -30,6 +32,8 @@ type Values struct {
 	PrefetchEvery int    `json:"prefetch_every"`
 	MBContact     string `json:"mb_contact"`
 	Lang          string `json:"lang"`
+	Cover         bool   `json:"cover"`
+	CoverEmbed    bool   `json:"cover_embed"`
 }
 
 type Settings struct {
@@ -60,6 +64,10 @@ func (a *App) Lang() i18n.Lang {
 	return i18n.ParseLang(a.stringSetting(keyLang, string(a.Cfg.Lang)))
 }
 
+func (a *App) CoverWanted() bool { return a.boolSetting(keyCover, a.Cfg.Cover) }
+
+func (a *App) CoverEmbedded() bool { return a.boolSetting(keyCoverEmbed, a.Cfg.CoverEmbed) }
+
 func (a *App) ScanEvery() time.Duration {
 	return time.Duration(a.intSetting(keyScanEvery, int(a.Cfg.ScanEvery.Seconds()))) * time.Second
 }
@@ -73,6 +81,14 @@ func (a *App) stringSetting(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func (a *App) boolSetting(key string, fallback bool) bool {
+	v, ok := a.Store.Setting(key)
+	if !ok {
+		return fallback
+	}
+	return v == "1"
 }
 
 func (a *App) intSetting(key string, fallback int) int {
@@ -99,6 +115,8 @@ func (a *App) Settings() Settings {
 			PrefetchEvery: int(a.PrefetchEvery().Seconds()),
 			MBContact:     a.MBContact(),
 			Lang:          string(lang),
+			Cover:         a.CoverWanted(),
+			CoverEmbed:    a.CoverEmbedded(),
 		},
 		Languages: languageList(),
 		Fields:    apply.DisplayFields(lang),
@@ -107,7 +125,7 @@ func (a *App) Settings() Settings {
 		Cache:     a.Store.CacheSize(),
 	}
 	r.Preview = Preview(patterns, lang)
-	for _, key := range []string{keyPattern, keyPatternMulti, keyMode, keyScanEvery, keyPrefetchEvery, keyMBContact, keyLang} {
+	for _, key := range []string{keyPattern, keyPatternMulti, keyMode, keyScanEvery, keyPrefetchEvery, keyMBContact, keyLang, keyCover, keyCoverEmbed} {
 		if _, ok := a.Store.Setting(key); ok {
 			r.Customized = append(r.Customized, key)
 		}
@@ -126,6 +144,8 @@ type SettingsPatch struct {
 	PrefetchEvery *int    `json:"prefetch_every"`
 	MBContact     *string `json:"mb_contact"`
 	Lang          *string `json:"lang"`
+	Cover         *bool   `json:"cover"`
+	CoverEmbed    *bool   `json:"cover_embed"`
 }
 
 func (a *App) Update(m SettingsPatch) error {
@@ -166,6 +186,16 @@ func (a *App) Update(m SettingsPatch) error {
 			return err
 		}
 	}
+	if m.Cover != nil {
+		if err := a.setBool(keyCover, *m.Cover, a.Cfg.Cover); err != nil {
+			return err
+		}
+	}
+	if m.CoverEmbed != nil {
+		if err := a.setBool(keyCoverEmbed, *m.CoverEmbed, a.Cfg.CoverEmbed); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -188,6 +218,16 @@ func (a *App) setInt(key string, value, fallback, min, max int) error {
 		return a.Store.DeleteSetting(key)
 	}
 	return a.Store.PutSetting(key, strconv.Itoa(value))
+}
+
+func (a *App) setBool(key string, value, fallback bool) error {
+	if value == fallback {
+		return a.Store.DeleteSetting(key)
+	}
+	if value {
+		return a.Store.PutSetting(key, "1")
+	}
+	return a.Store.PutSetting(key, "0")
 }
 
 func (a *App) ClearCache() (int, error) {

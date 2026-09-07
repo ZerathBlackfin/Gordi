@@ -40,6 +40,8 @@
         pattern_multi: r.pattern_multi,
         mode: r.mode,
         lang: r.lang,
+        cover: r.cover,
+        cover_embed: r.cover_embed,
       }
       setLanguage(r.lang)
       preview = r.preview
@@ -67,6 +69,11 @@
       }
     }, 250)
   }
+
+  const COVERS = [
+    { key: 'folder', field: 'cover' },
+    { key: 'files', field: 'cover_embed' },
+  ]
 
   function applyPreset(m) {
     draft.pattern = m.pattern
@@ -200,6 +207,33 @@
           </label>
         {/each}
       </div>
+    </section>
+
+    <section>
+      <h2>{t('settings.cover')}</h2>
+      <p class="muted hint">{t('settings.coverHint')}</p>
+      {#each COVERS as c (c.field)}
+        <div class="toggle">
+          <span class="label">
+            <span>{t(`cover.${c.key}`)}</span>
+            <span class="muted small">{t(`cover.${c.key}Hint`)}</span>
+          </span>
+          <div class="segmented">
+            {#each [false, true] as v (v)}
+              <label class:active={draft[c.field] === v}>
+                <input
+                  class="sr"
+                  type="radio"
+                  name={c.field}
+                  checked={draft[c.field] === v}
+                  onchange={() => (draft[c.field] = v)}
+                />
+                <span>{v ? t('cover.on') : t('cover.off')}</span>
+              </label>
+            {/each}
+          </div>
+        </div>
+      {/each}
     </section>
 
     <section>
@@ -403,6 +437,18 @@
       grid-template-columns: minmax(0, 1fr);
       gap: 0;
     }
+  }
+
+  .toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .toggle .label {
+    display: flex;
+    flex-direction: column;
   }
 
   .segmented {
