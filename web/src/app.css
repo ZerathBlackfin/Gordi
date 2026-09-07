@@ -6,7 +6,8 @@
   --line: #d2d7d5;
   --ink: #16191b;
   --muted-ink: #5a6260;
-  --brand: #ffb02e;
+  --amber: #ffb02e;
+  --brand: var(--amber);
   --alert: #a8402f;
   --ok: #2e6b52;
 

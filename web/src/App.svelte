@@ -64,7 +64,7 @@
     let queueRead = Date.now()
     const poll = async () => {
       try {
-        if (Date.now() - queueRead >= 8000) {
+        if (Date.now() - queueRead >= 8000 || prefetch?.indexing) {
           queueRead = Date.now()
           await load()
         } else {

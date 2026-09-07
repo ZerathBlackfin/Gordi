@@ -766,8 +766,8 @@
   }
 
   .ready.working {
-    background: var(--brand);
-    border-color: var(--brand);
+    background: var(--amber);
+    border-color: var(--amber);
     animation: waiting 1.6s ease-in-out infinite;
   }
 
