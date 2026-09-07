@@ -106,14 +106,23 @@ func TestFrontPlaceholdersSuppliedByCaller(t *testing.T) {
 	cat := locales(t)
 	for name, s := range sources(t) {
 		for _, call := range regexp.MustCompile(`\bt\(\s*'([a-z][a-zA-Z]*\.[a-zA-Z]+)'\s*,\s*\{([^}]*)\}`).FindAllStringSubmatch(s, -1) {
-			key, supplied := call[1], call[2]
+			key, supplied := call[1], fields(call[2])
 			for _, l := range []string{"en", "fr"} {
 				for _, v := range placeholderRE.FindAllStringSubmatch(cat[l][key], -1) {
-					if !strings.Contains(supplied, v[1]+":") {
+					if !supplied[v[1]] {
 						t.Errorf("%s: %q expects {%s}, not supplied (%s)", name, key, v[1], l)
 					}
 				}
 			}
 		}
 	}
+}
+
+func fields(literal string) map[string]bool {
+	out := map[string]bool{}
+	for _, field := range strings.Split(literal, ",") {
+		name, _, _ := strings.Cut(field, ":")
+		out[strings.TrimSpace(name)] = true
+	}
+	return out
 }

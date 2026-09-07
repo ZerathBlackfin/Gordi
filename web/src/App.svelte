@@ -102,6 +102,12 @@
   </a>
 
   <div class="tools">
+    {#if status?.update}
+      <a class="update" href={status.update.url} target="_blank" rel="noreferrer">
+        {t('bar.update', { version: status.update.version })}
+      </a>
+    {/if}
+
     {#if waiting.active && !loader.onScreen}
       <span class="waiting" title={t('bar.waitingHint')}>
         {t('bar.waiting', { n: waitSeconds })}
@@ -133,7 +139,7 @@
 
 <main class:settings={!onTriage}>
   {#if onSettings}
-    <SettingsPage onchange={load} />
+    <SettingsPage onchange={load} version={status?.version} update={status?.update} />
   {:else if onFiled}
     <FiledPage />
   {:else}
@@ -180,6 +186,30 @@
     display: flex;
     align-items: center;
     gap: 8px;
+  }
+
+  .update {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    color: var(--tint-ink);
+    background: var(--tint-soft);
+    border-radius: 999px;
+    padding: 2px 11px;
+    text-decoration: none;
+  }
+
+  .update::before {
+    content: '';
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--brand);
+  }
+
+  .update:hover {
+    color: var(--ink);
   }
 
   .waiting {

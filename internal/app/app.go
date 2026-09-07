@@ -9,16 +9,19 @@ import (
 	"sync"
 	"time"
 
+	"gordi/internal/build"
 	"gordi/internal/config"
 	"gordi/internal/library"
 	"gordi/internal/musicbrainz"
 	"gordi/internal/store"
+	"gordi/internal/update"
 )
 
 type App struct {
-	Cfg   config.Config
-	Store *store.Store
-	MB    *musicbrainz.Client
+	Cfg     config.Config
+	Store   *store.Store
+	MB      *musicbrainz.Client
+	Updates *update.Checker
 
 	mu       sync.Mutex
 	scanning bool
@@ -40,10 +43,11 @@ type App struct {
 
 func New(cfg config.Config, st *store.Store) *App {
 	return &App{
-		Cfg:   cfg,
-		Store: st,
-		MB:    musicbrainz.New(cfg.MBContact),
-		wake:  make(chan struct{}, 1),
+		Cfg:     cfg,
+		Store:   st,
+		MB:      musicbrainz.New(cfg.MBContact),
+		Updates: update.New(),
+		wake:    make(chan struct{}, 1),
 	}
 }
 
@@ -112,6 +116,8 @@ func gap(a, b int) int {
 }
 
 type Status struct {
+	Version  string           `json:"version"`
+	Update   *update.Release  `json:"update"`
 	Input    string           `json:"input"`
 	Output   string           `json:"output"`
 	Mode     string           `json:"mode"`
@@ -146,6 +152,8 @@ func (a *App) Status() (Status, error) {
 	defer a.mu.Unlock()
 
 	s := Status{
+		Version:  build.Version,
+		Update:   a.Updates.Latest(),
 		Input:    a.Cfg.Input,
 		Output:   a.Cfg.Output,
 		Mode:     string(a.Cfg.Mode),
@@ -213,6 +221,8 @@ func (a *App) Run(ctx context.Context) {
 		if err := a.Store.CachePurge(); err != nil {
 			slog.Error("cache sweep", "err", err)
 		}
+
+		a.Updates.Refresh(ctx)
 
 		select {
 		case <-ctx.Done():

@@ -8,7 +8,7 @@
   import { day } from './format.js'
   import { navigate } from './router.svelte.js'
 
-  let { onchange } = $props()
+  let { onchange, version, update } = $props()
 
   let settings = $state(null)
   let draft = $state(null)
@@ -250,6 +250,23 @@
         </p>
       {/if}
     </section>
+
+    {#if version}
+      <section>
+        <h2>{t('settings.about')}</h2>
+        <p class="muted hint">
+          {t('settings.version', { version })}
+          {#if update}
+            ·
+            <a class="quiet" href={update.url} target="_blank" rel="noreferrer">
+              {t('settings.whatsNew', { version: update.version })}
+            </a>
+          {:else if version !== 'dev'}
+            · {t('settings.upToDate')}
+          {/if}
+        </p>
+      </section>
+    {/if}
 
     {#if error}
       <p class="error">{error}</p>

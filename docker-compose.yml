@@ -1,6 +1,9 @@
 services:
   gordi:
-    build: .
+    build:
+      context: .
+      args:
+        VERSION: "${GORDI_VERSION:-dev}"
     container_name: gordi
     ports:
       - "${GORDI_PORT:-7373}:7373"
