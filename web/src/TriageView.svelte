@@ -6,6 +6,7 @@
   import ReleasePicker from './ReleasePicker.svelte'
   import Loading from './Loading.svelte'
   import { reveal } from './reveal.js'
+  import { paths, transform, viewBox } from './logo.js'
   import { compare, split, labelFor, linkFor } from './diff.js'
   import { t } from './i18n.svelte.js'
 
@@ -17,6 +18,7 @@
   let release = $state(null)
   let plan = $state(null)
   let tint = $state(null)
+  let coverless = $state(false)
   let error = $state('')
   let busy = $state(false)
   let loading = $state(false)
@@ -63,6 +65,7 @@
     release = null
     plan = null
     filed = null
+    coverless = false
     expanded = {}
     allExpanded = false
     error = ''
@@ -367,8 +370,25 @@
       {/if}
     {:else}
       {#key album.id}
-      <header class="hero" style:--cover={`url(/api/albums/${album.id}/cover)`}>
-        <img class="cover" src={`/api/albums/${album.id}/cover`} alt="" />
+      <header class="hero" style:--cover={coverless ? 'none' : `url(/api/albums/${album.id}/cover)`}>
+        {#if coverless}
+          <span class="cover blank" title={t('album.noCover')}>
+            <svg {viewBox} aria-hidden="true" focusable="false">
+              <g {transform}>
+                {#each paths as d}
+                  <path {d} />
+                {/each}
+              </g>
+            </svg>
+          </span>
+        {:else}
+          <img
+            class="cover"
+            src={`/api/albums/${album.id}/cover`}
+            alt=""
+            onerror={() => (coverless = true)}
+          />
+        {/if}
         <div>
           <h1>{album.title || album.rel_dir}</h1>
           <p class="artist">{album.artist || t('album.unknownArtist')}</p>
@@ -866,6 +886,18 @@
     border-radius: 2px;
     background: var(--surface-sunken);
     flex-shrink: 0;
+  }
+
+  .blank {
+    display: grid;
+    place-items: center;
+  }
+
+  .blank svg {
+    display: block;
+    width: 54px;
+    height: auto;
+    fill: var(--line);
   }
 
   h1 {

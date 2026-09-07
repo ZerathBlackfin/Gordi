@@ -8,6 +8,7 @@
   "action.moveTo": "Déplacer vers",
   "action.originalsDeleted": "originaux supprimés",
   "album.indexing": "Indexation",
+  "album.noCover": "Pochette introuvable",
   "album.noRelease": "Aucune édition trouvée",
   "album.noReleaseHint": "Renomme le dossier « Artiste - Album », puis relis le dossier.",
   "album.unknownArtist": "Artiste inconnu",

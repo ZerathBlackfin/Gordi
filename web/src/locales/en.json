@@ -8,6 +8,7 @@
   "action.moveTo": "Move to",
   "action.originalsDeleted": "originals deleted",
   "album.indexing": "Indexing",
+  "album.noCover": "Cover not found",
   "album.noRelease": "No release found",
   "album.noReleaseHint": "Rename the folder \"Artist - Album\", then rescan.",
   "album.unknownArtist": "Unknown artist",
