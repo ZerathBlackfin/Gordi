@@ -44,6 +44,14 @@ export function getCandidates(id, filters = {}, force = false) {
   return tracked(`/albums/${id}/candidates${query ? `?${query}` : ''}`)
 }
 
+export function searchReleases(id, artist, album, filters = {}) {
+  const params = new URLSearchParams({ artist, album })
+  for (const [key, value] of Object.entries(filters)) {
+    if (value) params.set(key, value)
+  }
+  return tracked(`/albums/${id}/search?${params}`)
+}
+
 export const getFiled = (limit = 50) => request(`/filed?limit=${limit}`)
 
 export const getRelease = (mbid) => tracked(`/releases/${mbid}`)

@@ -423,6 +423,17 @@
           <p class="verdict-title">{t('album.noRelease')}</p>
           <p class="muted">{t('album.noReleaseHint')}</p>
         </div>
+        {#key album.id}
+          <ReleasePicker
+            releases={releases ?? []}
+            expectedTracks={album.track_count}
+            albumId={album.id}
+            artist={album.artist}
+            title={album.title}
+            onselect={(r) => select(r)}
+            onresults={(found) => (releases = found)}
+          />
+        {/key}
       {:else}
         <!-- The verdict: the only thing you need to read to decide. -->
         <div class="verdict" class:warn={verdict?.tone === 'warn'}>
@@ -512,7 +523,10 @@
             selected={release.id}
             expectedTracks={album.track_count}
             albumId={album.id}
+            artist={album.artist}
+            title={album.title}
             onselect={(r) => select(r)}
+            onresults={(found) => (releases = found)}
           />
         {/if}
 

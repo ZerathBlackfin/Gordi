@@ -104,6 +104,28 @@ func Handler(a *app.App, web fs.FS) http.Handler {
 		ok(w, suggestions)
 	})
 
+	mux.HandleFunc("GET /api/albums/{id}/search", func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+		if err != nil {
+			fail(w, http.StatusBadRequest, err)
+			return
+		}
+		q := r.URL.Query()
+		filters := musicbrainz.Filters{
+			Country: q.Get("country"),
+			Format:  q.Get("format"),
+			Status:  q.Get("status"),
+			YearMin: intParam(q.Get("year_min")),
+			YearMax: intParam(q.Get("year_max")),
+		}
+		suggestions, err := a.Lookup(r.Context(), id, q.Get("artist"), q.Get("album"), filters)
+		if err != nil {
+			fail(w, http.StatusBadGateway, err)
+			return
+		}
+		ok(w, suggestions)
+	})
+
 	mux.HandleFunc("GET /api/releases/{mbid}", func(w http.ResponseWriter, r *http.Request) {
 		release, err := a.Release(r.Context(), r.PathValue("mbid"))
 		if err != nil {

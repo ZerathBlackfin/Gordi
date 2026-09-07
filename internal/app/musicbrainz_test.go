@@ -2,6 +2,7 @@ package app
 
 import (
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -115,5 +116,19 @@ func TestReadyMarkerNeedsTheReleaseToo(t *testing.T) {
 	a.markReady(album)
 	if !a.Store.CacheFresh(marker) {
 		t.Fatal("search and release both cached, the album is ready")
+	}
+}
+
+func TestPastedLinkGivesUpItsIdentifier(t *testing.T) {
+	const mbid = "0a1b2c3d-4e5f-6789-a0b1-c2d3e4f56789"
+	for query, want := range map[string]string{
+		"https://musicbrainz.org/release/" + mbid:         mbid,
+		"  " + strings.ToUpper(mbid) + "  ":               mbid,
+		"Kind of Blue":                                    "",
+		"https://musicbrainz.org/release-group/not-a-uid": "",
+	} {
+		if got := mbidRE.FindString(strings.ToLower(query)); got != want {
+			t.Errorf("%q gave %q, wanted %q", query, got, want)
+		}
 	}
 }

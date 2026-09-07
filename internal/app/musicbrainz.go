@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -23,6 +24,7 @@ type Source string
 const (
 	SourceBarcode Source = "barcode"
 	SourceSearch  Source = "search"
+	SourceManual  Source = "manual"
 )
 
 type Suggestions struct {
@@ -56,6 +58,52 @@ func (a *App) Candidates(ctx context.Context, albumID int64, f musicbrainz.Filte
 		return Suggestions{}, err
 	}
 	a.writeCache(key, p)
+	p.Selected = obviousRelease(p, album.TrackCount)
+	return p, nil
+}
+
+var mbidRE = regexp.MustCompile(`[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
+
+func (a *App) Lookup(ctx context.Context, albumID int64, artist, title string, f musicbrainz.Filters) (Suggestions, error) {
+	album, err := a.Store.Get(albumID)
+	if err != nil {
+		return Suggestions{}, err
+	}
+	if album == nil {
+		return Suggestions{}, fmt.Errorf("unknown album")
+	}
+
+	artist, title = strings.TrimSpace(artist), strings.TrimSpace(title)
+	if title == "" {
+		return Suggestions{}, fmt.Errorf("empty search")
+	}
+
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), callTimeout)
+	defer cancel()
+
+	if mbid := mbidRE.FindString(strings.ToLower(title)); mbid != "" {
+		detail, err := a.release(ctx, mbid)
+		if err != nil {
+			return Suggestions{}, err
+		}
+		return Suggestions{
+			Source:   SourceManual,
+			Selected: detail.ID,
+			Releases: []musicbrainz.Release{detail.Release},
+		}, nil
+	}
+
+	v, err := a.group.Do("lookup:"+artist+"|"+title+filtersKey(f), func() (any, error) {
+		a.beginCall()
+		defer a.endCall()
+		return a.MB.Search(ctx, artist, title, f, 25)
+	})
+	if err != nil {
+		return Suggestions{}, err
+	}
+
+	p := Suggestions{Source: SourceManual, Releases: v.([]musicbrainz.Release)}
+	rankReleases(p.Releases, album.TrackCount)
 	p.Selected = obviousRelease(p, album.TrackCount)
 	return p, nil
 }

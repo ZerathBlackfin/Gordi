@@ -4,21 +4,27 @@
   import { reveal } from './reveal.js'
   import { t } from './i18n.svelte.js'
 
-  let { releases = [], selected = null, expectedTracks = 0, albumId, onselect, attached = false } = $props()
+  let {
+    releases = [],
+    selected = null,
+    expectedTracks = 0,
+    albumId,
+    artist = '',
+    title = '',
+    onselect,
+    onresults,
+    attached = false,
+  } = $props()
 
   const FORMATS = ['', 'cd', 'digital', 'vinyl', 'cassette']
 
   const EMPTY = { country: '', format: '', year_min: '', year_max: '' }
 
   let list = $state(releases)
-  let draft = $state({ ...EMPTY })
-  let applied = $state({ ...EMPTY })
+  let words = $state({ artist, album: title })
+  let filters = $state({ ...EMPTY })
   let busy = $state(false)
   let error = $state('')
-
-  const dirty = $derived(
-    Object.keys(EMPTY).some((c) => String(draft[c] ?? '') !== String(applied[c] ?? '')),
-  )
 
   const countries = $derived(
     [...new Set(['FR', 'GB', 'US', 'DE', 'JP', 'XW', 'XE', ...list.map((e) => e.country)])]
@@ -26,19 +32,22 @@
       .sort(),
   )
 
-  async function filter() {
+  async function search() {
+    if (!words.album.trim() || busy) return
     busy = true
     error = ''
     try {
-      const p = await api.getCandidates(albumId, draft)
+      const p = await api.searchReleases(albumId, words.artist, words.album, filters)
       list = p.releases ?? []
-      applied = { ...draft }
+      onresults?.(list)
     } catch (e) {
       error = e.message
     } finally {
       busy = false
     }
   }
+
+  const onEnter = (e) => e.key === 'Enter' && search()
 
   function describe(e) {
     return [e.date?.slice(0, 4), e.country, e.status, e.format, e.packaging]
@@ -50,13 +59,26 @@
 <div class="reveal" transition:reveal>
   <div class="clip">
     <div class="picker" class:attached>
+  <div class="search">
+    <input
+      class="artist"
+      bind:value={words.artist}
+      placeholder={t('picker.artist')}
+      onkeydown={onEnter}
+    />
+    <input bind:value={words.album} placeholder={t('picker.album')} onkeydown={onEnter} />
+    <button onclick={search} disabled={!words.album.trim() || busy}>
+      {busy ? t('picker.searching') : t('picker.search')}
+    </button>
+  </div>
+
   <div class="filters">
-    <select bind:value={draft.country} aria-label={t('picker.country')}>
+    <select bind:value={filters.country} onchange={search} aria-label={t('picker.country')}>
       <option value="">{t('picker.allCountries')}</option>
       {#each countries as c (c)}<option value={c}>{c}</option>{/each}
     </select>
 
-    <select bind:value={draft.format} aria-label={t('picker.format')}>
+    <select bind:value={filters.format} onchange={search} aria-label={t('picker.format')}>
       {#each FORMATS as v (v)}
         <option value={v}>{v ? t(`picker.${v}`) : t('picker.allFormats')}</option>
       {/each}
@@ -67,19 +89,17 @@
       placeholder={t('picker.from')}
       min="1900"
       max="2100"
-      bind:value={draft.year_min}
+      bind:value={filters.year_min}
+      onkeydown={onEnter}
     />
     <input
       type="number"
       placeholder={t('picker.to')}
       min="1900"
       max="2100"
-      bind:value={draft.year_max}
+      bind:value={filters.year_max}
+      onkeydown={onEnter}
     />
-
-    <button onclick={filter} disabled={!dirty || busy}>
-      {busy ? t('picker.searching') : t('picker.filter')}
-    </button>
   </div>
 
   {#if error}
@@ -155,6 +175,21 @@
     padding: 12px 16px;
   }
 
+  .search {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .search input {
+    flex: 3;
+    min-width: 0;
+  }
+
+  .search input.artist {
+    flex: 2;
+  }
+
   .filters {
     display: flex;
     flex-wrap: wrap;
@@ -162,8 +197,10 @@
     margin-bottom: 10px;
   }
 
+  .filters select,
   .filters input {
-    width: 74px;
+    flex: 1 1 90px;
+    min-width: 0;
   }
 
   ul {
