@@ -160,6 +160,11 @@ func tagsFor(file library.Track, track musicbrainz.Track, release musicbrainz.Re
 			tags[key] = []string{value}
 		}
 	}
+	setAll := func(key string, values []string) {
+		if merged := merge(values); len(merged) > 0 {
+			tags[key] = merged
+		}
+	}
 
 	set(taglib.Title, track.Title)
 	set(taglib.Artist, track.Artist)
@@ -171,23 +176,70 @@ func tagsFor(file library.Track, track musicbrainz.Track, release musicbrainz.Re
 	set("TRACKTOTAL", strconv.Itoa(len(release.Tracks)))
 	set(taglib.DiscNumber, strconv.Itoa(max(track.Disc, 1)))
 	set("DISCTOTAL", strconv.Itoa(discs))
+	set(taglib.AlbumArtistSort, release.ArtistSort)
+	set(taglib.ArtistSort, track.ArtistSort)
+	setAll(taglib.Artists, track.Artists)
+	setAll("ALBUMARTISTS", release.Artists)
+	set(taglib.DiscSubtitle, track.DiscTitle)
+	set("ORIGINALYEAR", year(release.FirstRelease))
+	set(taglib.ASIN, release.ASIN)
+	set(taglib.Script, release.Script)
+	set(taglib.Language, release.Language)
+	setAll(taglib.ReleaseType, releaseTypes(release))
 	set(taglib.Label, release.Label)
 	set(taglib.CatalogNumber, release.Catalog)
 	set(taglib.Barcode, release.Barcode)
 	set(taglib.Media, release.Format)
 	set(taglib.ReleaseCountry, release.Country)
-	set(taglib.ReleaseStatus, release.Status)
+	set(taglib.ReleaseStatus, strings.ToLower(release.Status))
 	set(taglib.MusicBrainzAlbumID, release.ID)
 	set(taglib.MusicBrainzTrackID, track.RecordingID)
+	set(taglib.MusicBrainzReleaseTrackID, track.TrackID)
+	set(taglib.MusicBrainzArtistID, track.ArtistID)
 	set(taglib.MusicBrainzAlbumArtistID, release.ArtistID)
 	set(taglib.MusicBrainzReleaseGroupID, release.ReleaseGroupID)
-	if len(track.ISRCs) > 0 {
-		set(taglib.ISRC, track.ISRCs[0])
-	}
-	if len(release.Genres) > 0 {
-		set(taglib.Genre, release.Genres[0])
-	}
+	setAll(taglib.ISRC, track.ISRCs)
+	setAll(taglib.Genre, release.Genres)
+
+	album, own := release.Credits, track.Credits
+	setAll(taglib.Producer, merge(album.Producers, own.Producers))
+	setAll(taglib.Mixer, merge(album.Mixers, own.Mixers))
+	setAll(taglib.Engineer, merge(album.Engineers, own.Engineers))
+	setAll(taglib.Arranger, merge(album.Arrangers, own.Arrangers))
+	setAll(taglib.Conductor, merge(album.Conductors, own.Conductors))
+	setAll(taglib.Performer, merge(album.Performers, own.Performers))
+	setAll(taglib.Composer, merge(album.Composers, own.Composers))
+	setAll(taglib.Lyricist, merge(album.Lyricists, own.Lyricists))
+	setAll("WRITER", merge(album.Writers, own.Writers))
+	set(taglib.Work, own.Work)
+	set(taglib.MusicBrainzWorkID, own.WorkID)
+	set("ISWC", own.ISWC)
 	return tags
+}
+
+func releaseTypes(release musicbrainz.ReleaseDetail) []string {
+	var out []string
+	if release.PrimaryType != "" {
+		out = append(out, strings.ToLower(release.PrimaryType))
+	}
+	for _, t := range release.SecondaryTypes {
+		out = append(out, strings.ToLower(t))
+	}
+	return out
+}
+
+func merge(lists ...[]string) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, list := range lists {
+		for _, v := range list {
+			if v = strings.TrimSpace(v); v != "" && !seen[v] {
+				seen[v] = true
+				out = append(out, v)
+			}
+		}
+	}
+	return out
 }
 
 func destinationPath(pattern string, tags map[string][]string, format, ext string) string {

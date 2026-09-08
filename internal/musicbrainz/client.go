@@ -45,12 +45,35 @@ type Release struct {
 type Track struct {
 	Position    int      `json:"position"`
 	Disc        int      `json:"disc"`
+	DiscTitle   string   `json:"disc_title"`
 	Number      string   `json:"number"`
 	Title       string   `json:"title"`
 	Artist      string   `json:"artist"`
+	Artists     []string `json:"artists"`
+	ArtistID    string   `json:"artist_id"`
+	ArtistSort  string   `json:"artist_sort"`
 	Length      int      `json:"length"`
+	TrackID     string   `json:"track_id"`
 	RecordingID string   `json:"recording_id"`
 	ISRCs       []string `json:"isrcs"`
+
+	Credits Credits `json:"credits"`
+}
+
+type Credits struct {
+	Producers  []string `json:"producers"`
+	Mixers     []string `json:"mixers"`
+	Engineers  []string `json:"engineers"`
+	Arrangers  []string `json:"arrangers"`
+	Conductors []string `json:"conductors"`
+	Performers []string `json:"performers"`
+	Composers  []string `json:"composers"`
+	Lyricists  []string `json:"lyricists"`
+	Writers    []string `json:"writers"`
+
+	Work   string `json:"work"`
+	WorkID string `json:"work_id"`
+	ISWC   string `json:"iswc"`
 }
 
 type Event struct {
@@ -69,6 +92,7 @@ type Medium struct {
 type ReleaseDetail struct {
 	Release
 
+	PrimaryType    string   `json:"primary_type"`
 	SecondaryTypes []string `json:"secondary_types"`
 	FirstRelease   string   `json:"first_release"`
 	ASIN           string   `json:"asin"`
@@ -77,9 +101,12 @@ type ReleaseDetail struct {
 	Quality        string   `json:"quality"`
 	ArtistID       string   `json:"artist_id"`
 	ArtistSort     string   `json:"artist_sort"`
+	Artists        []string `json:"artists"`
 	CoverURL       string   `json:"cover_url"`
 	Genres         []string `json:"genres"`
 	ArtistGenres   []string `json:"artist_genres"`
+
+	Credits Credits `json:"credits"`
 
 	Events []Event  `json:"events"`
 	Media  []Medium `json:"media"`
@@ -275,10 +302,21 @@ func (c *Client) search(ctx context.Context, query string, limit int) ([]Release
 	return releases, nil
 }
 
-const incRelease = "recordings+artist-credits+labels+release-groups+isrcs+genres"
+const incRelease = "recordings+artist-credits+labels+release-groups+isrcs+genres" +
+	"+artist-rels+recording-level-rels+work-rels+work-level-rels"
+
+type creditJSON struct {
+	Name   string `json:"name"`
+	Artist struct {
+		ID       string      `json:"id"`
+		SortName string      `json:"sort-name"`
+		Genres   []genreJSON `json:"genres"`
+	} `json:"artist"`
+}
 
 type genreJSON struct {
-	Name string `json:"name"`
+	Name  string `json:"name"`
+	Count int    `json:"count"`
 }
 
 func (c *Client) SearchBarcode(ctx context.Context, barcode string) ([]Release, error) {
@@ -310,14 +348,8 @@ func (c *Client) Release(ctx context.Context, mbid string) (*ReleaseDetail, erro
 			Language string `json:"language"`
 			Script   string `json:"script"`
 		} `json:"text-representation"`
-		ArtistCredit []struct {
-			Name   string `json:"name"`
-			Artist struct {
-				ID       string      `json:"id"`
-				SortName string      `json:"sort-name"`
-				Genres   []genreJSON `json:"genres"`
-			} `json:"artist"`
-		} `json:"artist-credit"`
+		Relations    []relationJSON `json:"relations"`
+		ArtistCredit []creditJSON   `json:"artist-credit"`
 		ReleaseGroup struct {
 			ID               string      `json:"id"`
 			PrimaryType      string      `json:"primary-type"`
@@ -349,16 +381,17 @@ func (c *Client) Release(ctx context.Context, mbid string) (*ReleaseDetail, erro
 			Title      string `json:"title"`
 			TrackCount int    `json:"track-count"`
 			Tracks     []struct {
-				Position  int    `json:"position"`
-				Number    string `json:"number"`
-				Title     string `json:"title"`
-				Length    int    `json:"length"`
-				Recording struct {
-					ID           string   `json:"id"`
-					ISRCs        []string `json:"isrcs"`
-					ArtistCredit []struct {
-						Name string `json:"name"`
-					} `json:"artist-credit"`
+				ID           string       `json:"id"`
+				Position     int          `json:"position"`
+				Number       string       `json:"number"`
+				Title        string       `json:"title"`
+				Length       int          `json:"length"`
+				ArtistCredit []creditJSON `json:"artist-credit"`
+				Recording    struct {
+					ID           string         `json:"id"`
+					ISRCs        []string       `json:"isrcs"`
+					Relations    []relationJSON `json:"relations"`
+					ArtistCredit []creditJSON   `json:"artist-credit"`
 				} `json:"recording"`
 			} `json:"tracks"`
 		} `json:"media"`
@@ -380,24 +413,32 @@ func (c *Client) Release(ctx context.Context, mbid string) (*ReleaseDetail, erro
 			ReleaseGroupID: payload.ReleaseGroup.ID,
 			Barcode:        payload.Barcode,
 		},
+		PrimaryType:    payload.ReleaseGroup.PrimaryType,
 		SecondaryTypes: payload.ReleaseGroup.SecondaryTypes,
 		FirstRelease:   payload.ReleaseGroup.FirstReleaseDate,
 		ASIN:           payload.ASIN,
 		Language:       payload.TextRepresentation.Language,
 		Script:         payload.TextRepresentation.Script,
 		Quality:        payload.Quality,
-		Genres:         genreNames(payload.Genres),
+		Genres:         topGenres(payload.Genres),
 		Events:         []Event{},
 		Media:          []Medium{},
 		Tracks:         []Track{},
+	}
+	if len(payload.Genres) == 0 {
+		d.Genres = topGenres(payload.ReleaseGroup.Genres)
 	}
 	if len(payload.ArtistCredit) > 0 {
 		a := payload.ArtistCredit[0]
 		d.Artist = a.Name
 		d.ArtistID = a.Artist.ID
 		d.ArtistSort = a.Artist.SortName
-		d.ArtistGenres = genreNames(a.Artist.Genres)
+		d.ArtistGenres = topGenres(a.Artist.Genres)
+		for _, credit := range payload.ArtistCredit {
+			d.Artists = append(d.Artists, credit.Name)
+		}
 	}
+	d.Credits = creditsFrom(payload.Relations)
 	if len(payload.LabelInfo) > 0 {
 		d.Label = payload.LabelInfo[0].Label.Name
 		d.Catalog = payload.LabelInfo[0].CatalogNumber
@@ -427,15 +468,29 @@ func (c *Client) Release(ctx context.Context, mbid string) (*ReleaseDetail, erro
 			track := Track{
 				Position:    t.Position,
 				Disc:        m.Position,
+				DiscTitle:   m.Title,
 				Number:      t.Number,
 				Title:       t.Title,
 				Length:      t.Length,
 				Artist:      d.Artist,
+				ArtistID:    d.ArtistID,
+				ArtistSort:  d.ArtistSort,
+				TrackID:     t.ID,
 				RecordingID: t.Recording.ID,
 				ISRCs:       t.Recording.ISRCs,
+				Credits:     creditsFrom(t.Recording.Relations),
 			}
-			if len(t.Recording.ArtistCredit) > 0 {
-				track.Artist = t.Recording.ArtistCredit[0].Name
+			credits := t.ArtistCredit
+			if len(credits) == 0 {
+				credits = t.Recording.ArtistCredit
+			}
+			if len(credits) > 0 {
+				track.Artist = credits[0].Name
+				track.ArtistID = credits[0].Artist.ID
+				track.ArtistSort = credits[0].Artist.SortName
+				for _, credit := range credits {
+					track.Artists = append(track.Artists, credit.Name)
+				}
 			}
 			d.Tracks = append(d.Tracks, track)
 		}
@@ -492,15 +547,118 @@ func (c *Client) coverAttempt(ctx context.Context, address string) ([]byte, erro
 	}
 }
 
-func genreNames(genres []genreJSON) []string {
+type relationJSON struct {
+	Type       string   `json:"type"`
+	TargetType string   `json:"target-type"`
+	Attributes []string `json:"attributes"`
+	Artist     struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	} `json:"artist"`
+	Work struct {
+		ID        string         `json:"id"`
+		Title     string         `json:"title"`
+		ISWCs     []string       `json:"iswcs"`
+		Relations []relationJSON `json:"relations"`
+	} `json:"work"`
+}
+
+func creditsFrom(rels []relationJSON) Credits {
+	var c Credits
+	for _, r := range rels {
+		switch r.TargetType {
+		case "artist":
+			name := strings.TrimSpace(r.Artist.Name)
+			if name == "" {
+				continue
+			}
+			switch r.Type {
+			case "producer":
+				c.Producers = addUnique(c.Producers, name)
+			case "mix":
+				c.Mixers = addUnique(c.Mixers, name)
+			case "engineer":
+				c.Engineers = addUnique(c.Engineers, name)
+			case "arranger", "instrument arranger", "vocal arranger", "orchestrator":
+				c.Arrangers = addUnique(c.Arrangers, name)
+			case "conductor":
+				c.Conductors = addUnique(c.Conductors, name)
+			case "instrument", "vocal", "performer":
+				c.Performers = addUnique(c.Performers, performer(name, r.Attributes))
+			case "composer":
+				c.Composers = addUnique(c.Composers, name)
+			case "lyricist":
+				c.Lyricists = addUnique(c.Lyricists, name)
+			case "writer":
+				c.Writers = addUnique(c.Writers, name)
+			}
+		case "work":
+			if r.Type != "performance" {
+				continue
+			}
+			if c.Work == "" {
+				c.Work, c.WorkID = r.Work.Title, r.Work.ID
+				if len(r.Work.ISWCs) > 0 {
+					c.ISWC = r.Work.ISWCs[0]
+				}
+			}
+			for _, w := range r.Work.Relations {
+				name := strings.TrimSpace(w.Artist.Name)
+				if name == "" {
+					continue
+				}
+				switch w.Type {
+				case "composer":
+					c.Composers = addUnique(c.Composers, name)
+				case "lyricist":
+					c.Lyricists = addUnique(c.Lyricists, name)
+				case "writer":
+					c.Writers = addUnique(c.Writers, name)
+				case "arranger", "orchestrator":
+					c.Arrangers = addUnique(c.Arrangers, name)
+				}
+			}
+		}
+	}
+	return c
+}
+
+func performer(name string, attributes []string) string {
+	if len(attributes) == 0 {
+		return name
+	}
+	return name + " (" + strings.Join(attributes, ", ") + ")"
+}
+
+func addUnique(list []string, v string) []string {
+	for _, existing := range list {
+		if existing == v {
+			return list
+		}
+	}
+	return append(list, v)
+}
+
+const MaxGenres = 4
+
+func topGenres(genres []genreJSON) []string {
 	if len(genres) == 0 {
 		return nil
 	}
-	out := make([]string, 0, len(genres))
-	for _, g := range genres {
+	ranked := append([]genreJSON(nil), genres...)
+	sort.SliceStable(ranked, func(i, j int) bool {
+		if ranked[i].Count != ranked[j].Count {
+			return ranked[i].Count > ranked[j].Count
+		}
+		return ranked[i].Name < ranked[j].Name
+	})
+	if len(ranked) > MaxGenres {
+		ranked = ranked[:MaxGenres]
+	}
+	out := make([]string, 0, len(ranked))
+	for _, g := range ranked {
 		out = append(out, g.Name)
 	}
-	sort.Strings(out)
 	return out
 }
 

@@ -2,6 +2,7 @@ package musicbrainz
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -120,5 +121,52 @@ func TestUnknownFilterIgnored(t *testing.T) {
 
 	if query := <-received; query != `release:"The Dark Side of the Moon"` {
 		t.Fatalf("dubious filters copied into the query: %s", query)
+	}
+}
+
+func TestGenresFollowTheVotes(t *testing.T) {
+	got := topGenres([]genreJSON{
+		{Name: "cool jazz", Count: 7},
+		{Name: "bebop", Count: 3},
+		{Name: "jazz", Count: 28},
+		{Name: "modal jazz", Count: 4},
+		{Name: "post-bop", Count: 2},
+	})
+	want := []string{"jazz", "cool jazz", "modal jazz", "bebop"}
+	if len(got) != len(want) {
+		t.Fatalf("got %v, wanted %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("got %v, wanted %v", got, want)
+		}
+	}
+}
+
+func TestCreditsReadRelations(t *testing.T) {
+	var rels []relationJSON
+	if err := json.Unmarshal([]byte(`[
+		{"type":"producer","target-type":"artist","artist":{"name":"Teo Macero"}},
+		{"type":"mix","target-type":"artist","artist":{"name":"Larry Keyes"}},
+		{"type":"instrument","target-type":"artist","attributes":["piano"],"artist":{"name":"Bill Evans"}},
+		{"type":"performance","target-type":"work","work":{"id":"w-1","title":"So What","iswcs":["T-073.092.797-5"],
+			"relations":[{"type":"composer","target-type":"artist","artist":{"name":"Miles Davis"}}]}}
+	]`), &rels); err != nil {
+		t.Fatal(err)
+	}
+
+	c := creditsFrom(rels)
+	for _, tc := range []struct{ got, want string }{
+		{strings.Join(c.Producers, ","), "Teo Macero"},
+		{strings.Join(c.Mixers, ","), "Larry Keyes"},
+		{strings.Join(c.Performers, ","), "Bill Evans (piano)"},
+		{strings.Join(c.Composers, ","), "Miles Davis"},
+		{c.Work, "So What"},
+		{c.WorkID, "w-1"},
+		{c.ISWC, "T-073.092.797-5"},
+	} {
+		if tc.got != tc.want {
+			t.Errorf("got %q, wanted %q", tc.got, tc.want)
+		}
 	}
 }
