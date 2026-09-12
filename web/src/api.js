@@ -55,11 +55,15 @@ export function searchReleases(id, artist, album, filters = {}) {
 export const getFiled = (limit = 50) => request(`/filed?limit=${limit}`)
 
 export const getRelease = (mbid) => tracked(`/releases/${mbid}`)
+export const getLyrics = (id, releaseId) =>
+  tracked(`/albums/${id}/lyrics?release_id=${encodeURIComponent(releaseId)}`)
+export const audioURL = (id, source) =>
+  `/api/albums/${id}/audio?track=${encodeURIComponent(source)}`
 export const getPlan = (id, releaseId, mode) =>
   request(`/albums/${id}/plan?release_id=${encodeURIComponent(releaseId)}&mode=${mode}`)
 
-export const apply = (id, releaseId, mode) =>
+export const apply = (id, releaseId, mode, noSync = []) =>
   request(`/albums/${id}/apply`, {
     method: 'POST',
-    body: JSON.stringify({ release_id: releaseId, mode }),
+    body: JSON.stringify({ release_id: releaseId, mode, no_sync: noSync }),
   })

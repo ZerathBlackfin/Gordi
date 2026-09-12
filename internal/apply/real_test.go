@@ -3,6 +3,7 @@ package apply
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"gordi/internal/i18n"
@@ -97,4 +98,90 @@ func TestFilingARealFLAC(t *testing.T) {
 	}
 	t.Logf("filed as %s · length %v · %d bits · %d image(s)",
 		res.Files[0], after.Length, after.BitDepth, len(after.Images))
+}
+
+func TestFilingWritesTheWordsBesideARealFLAC(t *testing.T) {
+	src := realFile()
+	if src == "" {
+		t.Skip("set GORDI_TEST_FLAC to a real audio file to run this")
+	}
+	source, err := os.ReadFile(src)
+	if err != nil {
+		t.Skipf("GORDI_TEST_FLAC unreadable: %v", err)
+	}
+
+	inbox, libraryDir := t.TempDir(), t.TempDir()
+	if err := os.MkdirAll(filepath.Join(inbox, "junk"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(inbox, "junk", "a.flac"), source, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	const synced = "[00:12.00] the first line\n[01:40.00] the last one"
+	plan, err := Prepare(testAlbum("a.flac"), testRelease("One"), pattern, i18n.EN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan.Lyrics, plan.LyricsSync = true, true
+	plan.Words = map[string]Words{"junk/a.flac": {Plain: "the first line\nthe last one", Synced: synced}}
+
+	res, err := Execute(plan, inbox, libraryDir, ModeCopy, i18n.EN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Lyrics != 1 || res.Synced != 1 {
+		t.Fatalf("want one of each, got %d word(s) and %d synced", res.Lyrics, res.Synced)
+	}
+
+	dest := filepath.Join(libraryDir, filepath.FromSlash(res.Files[0]))
+	tags, err := taglib.ReadTags(dest)
+	if err != nil {
+		t.Fatalf("the filed file no longer reads: %v", err)
+	}
+	if got := tags[taglib.Lyrics]; len(got) == 0 || !strings.Contains(got[0], "the first line") {
+		t.Errorf("the words did not make it into the tags: %v", got)
+	}
+
+	lrc := lrcPath(dest)
+	written, err := os.ReadFile(lrc)
+	if err != nil {
+		t.Fatalf("no .lrc beside the track: %v", err)
+	}
+	if string(written) != synced {
+		t.Errorf("the .lrc holds %q", written)
+	}
+	if filepath.Ext(lrc) != ".lrc" || strings.TrimSuffix(filepath.Base(lrc), ".lrc") != strings.TrimSuffix(filepath.Base(dest), ".flac") {
+		t.Errorf("%q does not sit beside %q", filepath.Base(lrc), filepath.Base(dest))
+	}
+}
+
+func TestSyncTurnedDownLeavesNoLRC(t *testing.T) {
+	src := realFile()
+	if src == "" {
+		t.Skip("set GORDI_TEST_FLAC to a real audio file to run this")
+	}
+	source, err := os.ReadFile(src)
+	if err != nil {
+		t.Skipf("GORDI_TEST_FLAC unreadable: %v", err)
+	}
+
+	inbox, libraryDir := t.TempDir(), t.TempDir()
+	os.MkdirAll(filepath.Join(inbox, "junk"), 0o755)
+	os.WriteFile(filepath.Join(inbox, "junk", "a.flac"), source, 0o644)
+
+	plan, _ := Prepare(testAlbum("a.flac"), testRelease("One"), pattern, i18n.EN)
+	plan.Lyrics, plan.LyricsSync = true, true
+	plan.Words = map[string]Words{"junk/a.flac": {Plain: "the words"}}
+
+	res, err := Execute(plan, inbox, libraryDir, ModeCopy, i18n.EN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Synced != 0 {
+		t.Fatalf("no timings means no .lrc, got %d", res.Synced)
+	}
+	if _, err := os.Stat(lrcPath(filepath.Join(libraryDir, filepath.FromSlash(res.Files[0])))); err == nil {
+		t.Error("an .lrc was written even though the timings were turned down")
+	}
 }

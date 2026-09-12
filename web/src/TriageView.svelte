@@ -4,6 +4,7 @@
   import { tintFor, inkOn } from './tint.js'
   import { duration, size, durationGap } from './format.js'
   import ReleasePicker from './ReleasePicker.svelte'
+  import SyncCheck from './SyncCheck.svelte'
   import Loading from './Loading.svelte'
   import { reveal } from './reveal.js'
   import { paths, transform, viewBox } from './logo.js'
@@ -28,6 +29,7 @@
   let expanded = $state({})
   let allExpanded = $state(false)
   let showAllRows = $state(readFullView())
+  let dropped = $state([])
 
   const VIEW_KEY = 'gordi-tracks-full'
 
@@ -68,6 +70,7 @@
     coverless = false
     expanded = {}
     allExpanded = false
+    dropped = []
     error = ''
     pickerOpen = false
     loading = true
@@ -111,7 +114,7 @@
     busy = true
     error = ''
     try {
-      filed = await api.apply(selectedId, release.id, mode)
+      filed = await api.apply(selectedId, release.id, mode, dropped)
       onchange?.()
       const next = albums.find((a) => a.id !== selectedId)
       if (next) setTimeout(() => open(next.id), 900)
@@ -712,6 +715,10 @@
           </div>
         </div>
 
+        {#if plan?.lyrics || plan?.lyrics_sync}
+          <SyncCheck albumId={album.id} releaseId={release.id} bind:dropped />
+        {/if}
+
         <footer class="action">
           <p class="destination">
             <span class="eyebrow">
@@ -723,6 +730,9 @@
             {/if}
             {#if plan?.cover || plan?.cover_embed}
               <span class="muted small">{t('action.cover')}</span>
+            {/if}
+            {#if plan?.lyrics || plan?.lyrics_sync}
+              <span class="muted small">{t('action.lyrics')}</span>
             {/if}
           </p>
           <button class="file-button" onclick={file} disabled={!readyToFile}>

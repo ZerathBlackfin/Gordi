@@ -42,6 +42,8 @@
         lang: r.lang,
         cover: r.cover,
         cover_embed: r.cover_embed,
+        lyrics: r.lyrics,
+        lyrics_sync: r.lyrics_sync,
       }
       setLanguage(r.lang)
       preview = r.preview
@@ -73,6 +75,11 @@
   const COVERS = [
     { key: 'folder', field: 'cover' },
     { key: 'files', field: 'cover_embed' },
+  ]
+
+  const WORDS = [
+    { key: 'tags', field: 'lyrics' },
+    { key: 'files', field: 'lyrics_sync' },
   ]
 
   function applyPreset(m) {
@@ -217,6 +224,33 @@
           <span class="label">
             <span>{t(`cover.${c.key}`)}</span>
             <span class="muted small">{t(`cover.${c.key}Hint`)}</span>
+          </span>
+          <div class="segmented">
+            {#each [false, true] as v (v)}
+              <label class:active={draft[c.field] === v}>
+                <input
+                  class="sr"
+                  type="radio"
+                  name={c.field}
+                  checked={draft[c.field] === v}
+                  onchange={() => (draft[c.field] = v)}
+                />
+                <span>{v ? t('cover.on') : t('cover.off')}</span>
+              </label>
+            {/each}
+          </div>
+        </div>
+      {/each}
+    </section>
+
+    <section>
+      <h2>{t('settings.lyrics')}</h2>
+      <p class="muted hint">{t('settings.lyricsHint')}</p>
+      {#each WORDS as c (c.field)}
+        <div class="toggle">
+          <span class="label">
+            <span>{t(`words.${c.key}`)}</span>
+            <span class="muted small">{t(`words.${c.key}Hint`)}</span>
           </span>
           <div class="segmented">
             {#each [false, true] as v (v)}

@@ -42,8 +42,17 @@ type Plan struct {
 	Warnings   []string       `json:"warnings"`
 	Cover      string         `json:"cover"`
 	CoverEmbed bool           `json:"cover_embed"`
+	Lyrics     bool           `json:"lyrics"`
+	LyricsSync bool           `json:"lyrics_sync"`
 
 	Art Art `json:"-"`
+
+	Words map[string]Words `json:"-"`
+}
+
+type Words struct {
+	Plain  string
+	Synced string
 }
 
 type Art struct {

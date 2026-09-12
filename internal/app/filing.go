@@ -28,11 +28,13 @@ func (a *App) Plan(ctx context.Context, albumID int64, releaseID string, mode ap
 		}
 		p.CoverEmbed = a.CoverEmbedded()
 	}
+	p.Lyrics = a.LyricsWanted()
+	p.LyricsSync = a.LyricsSynced()
 	a.markReady(album)
 	return p, nil
 }
 
-func (a *App) Apply(ctx context.Context, albumID int64, releaseID string, mode apply.Mode) (apply.Result, error) {
+func (a *App) Apply(ctx context.Context, albumID int64, releaseID string, mode apply.Mode, noSync []string) (apply.Result, error) {
 	album, release, err := a.albumAndRelease(ctx, albumID, releaseID)
 	if err != nil {
 		return apply.Result{}, err
@@ -54,6 +56,11 @@ func (a *App) Apply(ctx context.Context, albumID int64, releaseID string, mode a
 			p.CoverEmbed = wantEmbed
 			p.Art = apply.Art{Image: image, Embed: wantEmbed}
 		}
+	}
+
+	p.Lyrics, p.LyricsSync = a.LyricsWanted(), a.LyricsSynced()
+	if p.Lyrics || p.LyricsSync {
+		p.Words = a.Words(ctx, release, p, byPath(album.Tracks), set(noSync))
 	}
 
 	res, err := apply.Execute(p, a.Cfg.Input, a.Cfg.Output, mode, a.Lang())
@@ -110,4 +117,12 @@ func (a *App) RequestedMode(asked string) apply.Mode {
 		return apply.ModeCopy
 	}
 	return apply.ModeMove
+}
+
+func set(values []string) map[string]bool {
+	out := make(map[string]bool, len(values))
+	for _, v := range values {
+		out[v] = true
+	}
+	return out
 }

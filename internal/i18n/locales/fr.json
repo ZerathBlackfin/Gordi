@@ -17,6 +17,7 @@
   "filing.outsideLibrary": "Destination hors de la bibliothèque : %s",
   "filing.sameDestination": "Deux pistes tomberaient au même endroit : %s",
   "filing.tooManyFiles": "%d fichiers, %d pistes dans cette édition. Choisis-en une autre.",
+  "filing.unknownTrack": "Le fichier %q ne fait pas partie de cet album.",
   "filing.unmatchedFile": "Le fichier %q ne correspond à aucune piste de cette édition.",
   "filing.writingTags": "écriture des tags",
   "folder.disc": "disque",

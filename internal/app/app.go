@@ -11,7 +11,9 @@ import (
 
 	"gordi/internal/build"
 	"gordi/internal/config"
+	"gordi/internal/i18n"
 	"gordi/internal/library"
+	"gordi/internal/lyrics"
 	"gordi/internal/musicbrainz"
 	"gordi/internal/store"
 	"gordi/internal/update"
@@ -21,6 +23,7 @@ type App struct {
 	Cfg     config.Config
 	Store   *store.Store
 	MB      *musicbrainz.Client
+	Lyr     *lyrics.Client
 	Updates *update.Checker
 
 	mu       sync.Mutex
@@ -46,6 +49,7 @@ func New(cfg config.Config, st *store.Store) *App {
 		Cfg:     cfg,
 		Store:   st,
 		MB:      musicbrainz.New(cfg.MBContact),
+		Lyr:     lyrics.New(cfg.MBContact),
 		Updates: update.New(),
 		wake:    make(chan struct{}, 1),
 	}
@@ -96,6 +100,22 @@ func (a *App) Cover(albumID int64) ([]byte, string, error) {
 		}
 	}
 	return nil, "", nil
+}
+
+func (a *App) Audio(albumID int64, relPath string) (string, error) {
+	album, err := a.Store.Get(albumID)
+	if err != nil {
+		return "", err
+	}
+	if album == nil {
+		return "", i18n.Errorf(a.Lang(), "mb.unknownAlbum")
+	}
+	for _, t := range album.Tracks {
+		if t.RelPath == relPath {
+			return filepath.Join(a.Cfg.Input, filepath.FromSlash(relPath)), nil
+		}
+	}
+	return "", i18n.Errorf(a.Lang(), "filing.unknownTrack", relPath)
 }
 
 func rankReleases(releases []musicbrainz.Release, tracks int) {

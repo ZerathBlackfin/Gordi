@@ -27,6 +27,8 @@ type Result struct {
 	Deleted int      `json:"deleted"`
 	Ignored []string `json:"ignored"`
 	Cover   string   `json:"cover"`
+	Lyrics  int      `json:"lyrics"`
+	Synced  int      `json:"synced"`
 }
 
 func Execute(p Plan, inbox, libraryDir string, mode Mode, lang i18n.Lang) (Result, error) {
@@ -61,14 +63,30 @@ func Execute(p Plan, inbox, libraryDir string, mode Mode, lang i18n.Lang) (Resul
 
 	for i, track := range p.Tracks {
 		source := filepath.Join(inbox, filepath.FromSlash(track.Source))
-		if err := copyAndTag(source, destinations[i], track.Tags, embedded, lang); err != nil {
+		words := p.Words[track.Source]
+		tags := track.Tags
+		if p.Lyrics && words.Plain != "" {
+			tags[taglib.Lyrics] = []string{words.Plain}
+			res.Lyrics++
+		}
+		if err := copyAndTag(source, destinations[i], tags, embedded, lang); err != nil {
 			rollback()
 			return res, fmt.Errorf("%s : %w", track.Source, err)
 		}
 		written = append(written, destinations[i])
 		res.Files = append(res.Files, track.Destination)
+
+		if p.LyricsSync && words.Synced != "" {
+			lrc := lrcPath(destinations[i])
+			if err := writeLRC(lrc, words.Synced); err != nil {
+				slog.Warn("lyrics file not written", "file", lrc, "err", err)
+			} else {
+				written = append(written, lrc)
+				res.Synced++
+			}
+		}
 	}
-	res.Filed = len(written)
+	res.Filed = len(p.Tracks)
 
 	if p.Cover != "" && len(p.Art.Image) > 0 {
 		saved, err := writeCover(libraryDir, p.Cover, p.Art.Image, lang)
@@ -134,6 +152,17 @@ func copyAndTag(source, dest string, tags map[string][]string, image []byte, lan
 		return err
 	}
 	return os.Rename(tmpName, dest)
+}
+
+func lrcPath(dest string) string {
+	return strings.TrimSuffix(dest, filepath.Ext(dest)) + ".lrc"
+}
+
+func writeLRC(dest, synced string) error {
+	if _, err := os.Stat(dest); err == nil {
+		return nil
+	}
+	return os.WriteFile(dest, []byte(synced), 0o644)
 }
 
 func writeCover(libraryDir, relative string, image []byte, lang i18n.Lang) (bool, error) {

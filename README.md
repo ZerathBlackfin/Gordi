@@ -95,6 +95,8 @@ Everything comes from the environment. The naming patterns and a few preferences
 | `GORDI_PATTERN_MULTI` | see below | tree for a multi-disc album |
 | `GORDI_COVER` | off | write `cover.jpg` beside the album |
 | `GORDI_COVER_EMBED` | off | embed the cover in every file |
+| `GORDI_LYRICS` | off | write the words into the tags |
+| `GORDI_LYRICS_SYNC` | off | write an `.lrc` beside every track |
 | `PUID` / `PGID` | `0` | who the files belong to (see User and group) |
 | `TZ` | `Europe/Paris` | timezone |
 
@@ -114,6 +116,30 @@ Fields: `{artist}` `{album}` `{year}` `{track}` `{title}` `{disc}` `{format}`. A
 Off by default. Gordi can fetch the front cover from the [Cover Art Archive](https://coverartarchive.org), the images MusicBrainz carries for the very release you picked. Two independent settings, both under `/settings`: write a `cover.jpg` in the album folder, and embed the image in the files. Either one on its own is fine.
 
 Nothing is fetched when the release carries no image, an existing `cover.jpg` is never replaced, and a cover that cannot be written never costs you the filing.
+
+## Lyrics
+
+Off by default. Gordi asks [LRCLIB](https://lrclib.net) for the very track you
+picked, matched on artist, title, album and length. The length is always part of
+the question: without it the catalog happily answers with another edit of the
+same song. Nothing that fails to match is written.
+
+Two independent settings, both under `/settings`: the words in the `LYRICS` tag,
+and a timed `.lrc` file beside the track for players that scroll along.
+
+Timings get a second look. LRCLIB carries blocks written for a longer edit but
+filed under the right duration, and the length alone lets them through. So Gordi
+reads the block and turns it down when it runs past the end of your file, when
+the times run backwards, or when there are none. The words survive; only the
+sync is dropped.
+
+That still leaves a block that drifts by a second or two, which no check can see.
+Before filing, the album page offers two lines far apart in each song: play them
+and hear whether the words land with the voice. Any track whose sync you do not
+trust can be dropped on the spot, and it keeps its words.
+
+Nothing is fetched for a release that has no answer, an existing `.lrc` is never
+replaced, and lyrics that cannot be written never cost you the filing.
 
 ## Before it writes anything
 

@@ -22,6 +22,8 @@ const (
 	keyLang          = "lang"
 	keyCover         = "cover"
 	keyCoverEmbed    = "cover_embed"
+	keyLyrics        = "lyrics"
+	keyLyricsSync    = "lyrics_sync"
 )
 
 type Values struct {
@@ -34,6 +36,8 @@ type Values struct {
 	Lang          string `json:"lang"`
 	Cover         bool   `json:"cover"`
 	CoverEmbed    bool   `json:"cover_embed"`
+	Lyrics        bool   `json:"lyrics"`
+	LyricsSync    bool   `json:"lyrics_sync"`
 }
 
 type Settings struct {
@@ -67,6 +71,10 @@ func (a *App) Lang() i18n.Lang {
 func (a *App) CoverWanted() bool { return a.boolSetting(keyCover, a.Cfg.Cover) }
 
 func (a *App) CoverEmbedded() bool { return a.boolSetting(keyCoverEmbed, a.Cfg.CoverEmbed) }
+
+func (a *App) LyricsWanted() bool { return a.boolSetting(keyLyrics, a.Cfg.Lyrics) }
+
+func (a *App) LyricsSynced() bool { return a.boolSetting(keyLyricsSync, a.Cfg.LyricsSync) }
 
 func (a *App) ScanEvery() time.Duration {
 	return time.Duration(a.intSetting(keyScanEvery, int(a.Cfg.ScanEvery.Seconds()))) * time.Second
@@ -117,6 +125,8 @@ func (a *App) Settings() Settings {
 			Lang:          string(lang),
 			Cover:         a.CoverWanted(),
 			CoverEmbed:    a.CoverEmbedded(),
+			Lyrics:        a.LyricsWanted(),
+			LyricsSync:    a.LyricsSynced(),
 		},
 		Languages: languageList(),
 		Fields:    apply.DisplayFields(lang),
@@ -125,7 +135,7 @@ func (a *App) Settings() Settings {
 		Cache:     a.Store.CacheSize(),
 	}
 	r.Preview = Preview(patterns, lang)
-	for _, key := range []string{keyPattern, keyPatternMulti, keyMode, keyScanEvery, keyPrefetchEvery, keyMBContact, keyLang, keyCover, keyCoverEmbed} {
+	for _, key := range []string{keyPattern, keyPatternMulti, keyMode, keyScanEvery, keyPrefetchEvery, keyMBContact, keyLang, keyCover, keyCoverEmbed, keyLyrics, keyLyricsSync} {
 		if _, ok := a.Store.Setting(key); ok {
 			r.Customized = append(r.Customized, key)
 		}
@@ -146,6 +156,8 @@ type SettingsPatch struct {
 	Lang          *string `json:"lang"`
 	Cover         *bool   `json:"cover"`
 	CoverEmbed    *bool   `json:"cover_embed"`
+	Lyrics        *bool   `json:"lyrics"`
+	LyricsSync    *bool   `json:"lyrics_sync"`
 }
 
 func (a *App) Update(m SettingsPatch) error {
@@ -193,6 +205,16 @@ func (a *App) Update(m SettingsPatch) error {
 	}
 	if m.CoverEmbed != nil {
 		if err := a.setBool(keyCoverEmbed, *m.CoverEmbed, a.Cfg.CoverEmbed); err != nil {
+			return err
+		}
+	}
+	if m.Lyrics != nil {
+		if err := a.setBool(keyLyrics, *m.Lyrics, a.Cfg.Lyrics); err != nil {
+			return err
+		}
+	}
+	if m.LyricsSync != nil {
+		if err := a.setBool(keyLyricsSync, *m.LyricsSync, a.Cfg.LyricsSync); err != nil {
 			return err
 		}
 	}

@@ -21,6 +21,8 @@ services:
       GORDI_PREFETCH_EVERY: "${GORDI_PREFETCH_EVERY:-3}"
       GORDI_COVER: "${GORDI_COVER:-}"
       GORDI_COVER_EMBED: "${GORDI_COVER_EMBED:-}"
+      GORDI_LYRICS: "${GORDI_LYRICS:-}"
+      GORDI_LYRICS_SYNC: "${GORDI_LYRICS_SYNC:-}"
       GORDI_PATTERN: "${GORDI_PATTERN:-{artist}/{album} ({year})/{track} - {title}}"
       GORDI_PATTERN_MULTI: "${GORDI_PATTERN_MULTI:-{artist}/{album} ({year})/CD{disc:0}/{track} - {title}}"
       TZ: "${TZ:-Europe/Paris}"

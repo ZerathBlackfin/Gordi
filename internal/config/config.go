@@ -34,6 +34,9 @@ type Config struct {
 
 	Cover      bool
 	CoverEmbed bool
+
+	Lyrics     bool
+	LyricsSync bool
 }
 
 func Load() Config {
@@ -51,6 +54,8 @@ func Load() Config {
 		PatternMulti:  env("GORDI_PATTERN_MULTI", "{artist}/{album} ({year})/CD{disc:0}/{track} - {title}"),
 		Cover:         envBool("GORDI_COVER"),
 		CoverEmbed:    envBool("GORDI_COVER_EMBED"),
+		Lyrics:        envBool("GORDI_LYRICS"),
+		LyricsSync:    envBool("GORDI_LYRICS_SYNC"),
 	}
 	if c.Mode != ModeMove && c.Mode != ModeCopy {
 		c.Mode = ModeMove

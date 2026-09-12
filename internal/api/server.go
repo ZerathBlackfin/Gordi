@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -12,6 +13,24 @@ import (
 	"gordi/internal/app"
 	"gordi/internal/musicbrainz"
 )
+
+var audioTypes = map[string]string{
+	".mp3":  "audio/mpeg",
+	".flac": "audio/flac",
+	".m4a":  "audio/mp4",
+	".m4b":  "audio/mp4",
+	".aac":  "audio/aac",
+	".ogg":  "audio/ogg",
+	".oga":  "audio/ogg",
+	".opus": "audio/ogg",
+	".wav":  "audio/wav",
+	".aiff": "audio/aiff",
+	".aif":  "audio/aiff",
+}
+
+func audioType(path string) string {
+	return audioTypes[strings.ToLower(filepath.Ext(path))]
+}
 
 func Handler(a *app.App, web fs.FS) http.Handler {
 	mux := http.NewServeMux()
@@ -80,6 +99,38 @@ func Handler(a *app.App, web fs.FS) http.Handler {
 		w.Header().Set("Content-Type", mime)
 		w.Header().Set("Cache-Control", "private, max-age=300")
 		w.Write(image)
+	})
+
+	mux.HandleFunc("GET /api/albums/{id}/lyrics", func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+		if err != nil {
+			fail(w, http.StatusBadRequest, err)
+			return
+		}
+		tracks, err := a.Lyrics(r.Context(), id, r.URL.Query().Get("release_id"))
+		if err != nil {
+			fail(w, http.StatusBadGateway, err)
+			return
+		}
+		ok(w, tracks)
+	})
+
+	mux.HandleFunc("GET /api/albums/{id}/audio", func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+		if err != nil {
+			fail(w, http.StatusBadRequest, err)
+			return
+		}
+		path, err := a.Audio(id, r.URL.Query().Get("track"))
+		if err != nil {
+			fail(w, http.StatusNotFound, err)
+			return
+		}
+		if mime := audioType(path); mime != "" {
+			w.Header().Set("Content-Type", mime)
+		}
+		w.Header().Set("Cache-Control", "private, max-age=300")
+		http.ServeFile(w, r, path)
 	})
 
 	mux.HandleFunc("GET /api/albums/{id}/candidates", func(w http.ResponseWriter, r *http.Request) {
@@ -157,14 +208,15 @@ func Handler(a *app.App, web fs.FS) http.Handler {
 			return
 		}
 		var body struct {
-			ReleaseID string `json:"release_id"`
-			Mode      string `json:"mode"`
+			ReleaseID string   `json:"release_id"`
+			Mode      string   `json:"mode"`
+			NoSync    []string `json:"no_sync"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			fail(w, http.StatusBadRequest, err)
 			return
 		}
-		res, err := a.Apply(r.Context(), id, body.ReleaseID, a.RequestedMode(body.Mode))
+		res, err := a.Apply(r.Context(), id, body.ReleaseID, a.RequestedMode(body.Mode), body.NoSync)
 		if err != nil {
 			fail(w, http.StatusBadRequest, err)
 			return
