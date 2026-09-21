@@ -9,7 +9,7 @@
   import { reveal } from './reveal.js'
   import { paths, transform, viewBox } from './logo.js'
   import { compare, split, labelFor, linkFor } from './diff.js'
-  import { t } from './i18n.svelte.js'
+  import { t, currentLanguage } from './i18n.svelte.js'
 
   let { albums = [], mode = 'move', inbox = '', prefetch = null, onchange } = $props()
 
@@ -49,13 +49,69 @@
     }
   }
 
+  const SORT_KEY = 'gordi-queue-sort'
+
+  const SORTS = {
+    folder: (a) => a.rel_dir,
+    added: (a) => a.id,
+    artist: (a) => a.artist,
+    album: (a) => a.title || a.rel_dir,
+    year: (a) => a.date || (a.year ? String(a.year) : ''),
+    length: (a) => a.length,
+  }
+
+  let query = $state('')
+  let sort = $state(readSort())
+
+  function readSort() {
+    try {
+      const [key, direction] = (localStorage.getItem(SORT_KEY) ?? '').split(':')
+      if (SORTS[key]) return { key, desc: direction === 'desc' }
+    } catch {
+    }
+    return { key: 'folder', desc: false }
+  }
+
+  function saveSort() {
+    try {
+      localStorage.setItem(SORT_KEY, `${sort.key}:${sort.desc ? 'desc' : 'asc'}`)
+    } catch {
+    }
+  }
+
+  function flipSort() {
+    sort.desc = !sort.desc
+    saveSort()
+  }
+
+  const fold = (s) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
+
+  const visible = $derived.by(() => {
+    const words = fold(query).split(/\s+/).filter(Boolean)
+    const collator = new Intl.Collator(currentLanguage.value, { numeric: true })
+    const value = SORTS[sort.key]
+    const sign = sort.desc ? -1 : 1
+    return albums
+      .filter((a) => {
+        const text = fold([a.artist, a.title, a.rel_dir, a.year || '', a.genre, a.label].join(' '))
+        return words.every((w) => text.includes(w))
+      })
+      .sort((a, b) => {
+        const x = value(a)
+        const y = value(b)
+        if (!x !== !y) return x ? -1 : 1
+        const order = typeof x === 'number' ? x - y : collator.compare(x, y)
+        return sign * order || collator.compare(a.rel_dir, b.rel_dir)
+      })
+  })
+
   let token = 0
   let booted = false
 
   $effect(() => {
-    if (!booted && albums.length > 0) {
+    if (!booted && visible.length > 0) {
       booted = true
-      open(albums[0].id)
+      open(visible[0].id)
     }
   })
 
@@ -116,7 +172,7 @@
     try {
       filed = await api.apply(selectedId, release.id, mode, dropped)
       onchange?.()
-      const next = albums.find((a) => a.id !== selectedId)
+      const next = visible.find((a) => a.id !== selectedId)
       if (next) setTimeout(() => open(next.id), 900)
     } catch (e) {
       error = e.message
@@ -127,9 +183,9 @@
 
   function onKeydown(e) {
     if (e.target instanceof Element && e.target.closest('input, select, textarea')) return
-    const i = albums.findIndex((a) => a.id === selectedId)
-    if (e.key === 'ArrowDown' && i < albums.length - 1) open(albums[i + 1].id)
-    if (e.key === 'ArrowUp' && i > 0) open(albums[i - 1].id)
+    const i = visible.findIndex((a) => a.id === selectedId)
+    if (e.key === 'ArrowDown' && i < visible.length - 1) open(visible[i + 1].id)
+    if (e.key === 'ArrowUp' && i > 0) open(visible[i - 1].id)
 
     if (e.key === 'Enter' && readyToFile && e.target === document.body) file()
   }
@@ -334,13 +390,61 @@
 
 <div class="workbench">
   <aside class="queue">
-    <p class="eyebrow queue-title">{t('queue.title', { n: albums.length })}</p>
+    <div class="queue-head">
+      <p class="eyebrow queue-title">
+        {query
+          ? t('queue.titleFiltered', { shown: visible.length, n: albums.length })
+          : t('queue.title', { n: albums.length })}
+      </p>
+
+      {#if albums.length > 0}
+        <div class="sort">
+          <select bind:value={sort.key} onchange={saveSort} aria-label={t('queue.sortBy')}>
+            <option value="folder">{t('queue.sortFolder')}</option>
+            <option value="added">{t('queue.sortAdded')}</option>
+            <option value="artist">{t('queue.sortArtist')}</option>
+            <option value="album">{t('queue.sortAlbum')}</option>
+            <option value="year">{t('queue.sortYear')}</option>
+            <option value="length">{t('queue.sortLength')}</option>
+          </select>
+          <button
+            class="direction"
+            class:desc={sort.desc}
+            onclick={flipSort}
+            aria-label={sort.desc ? t('queue.descending') : t('queue.ascending')}
+            title={sort.desc ? t('queue.descending') : t('queue.ascending')}
+          >
+            <svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">
+              <path
+                d="M6 9.5v-7M3 5.5l3-3 3 3"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <input
+          class="search"
+          type="search"
+          bind:value={query}
+          placeholder={t('queue.search')}
+          aria-label={t('queue.search')}
+          spellcheck="false"
+        />
+      {/if}
+    </div>
 
     {#if albums.length === 0}
       <p class="empty muted">{t('queue.empty', { folder: inbox })}</p>
+    {:else if visible.length === 0}
+      <p class="no-match muted">{t('queue.noMatch')}</p>
     {:else}
       <ul>
-        {#each albums as a (a.id)}
+        {#each visible as a (a.id)}
           <li>
             <button
               class="queue-item"
@@ -756,12 +860,57 @@
   .queue {
     border-right: 1px solid var(--line);
     overflow-y: auto;
-    padding: 16px 0 24px;
+    padding: 0 0 24px;
+  }
+
+  .queue-head {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 16px 10px;
+    background: var(--bg);
   }
 
   .queue-title {
-    padding: 0 16px 8px;
     margin: 0;
+  }
+
+  .sort {
+    display: flex;
+    gap: 4px;
+  }
+
+  .sort select {
+    font-size: 12px;
+    padding: 2px 4px;
+  }
+
+  .direction {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+  }
+
+  .direction svg {
+    transition: transform 0.16s ease;
+  }
+
+  .direction.desc svg {
+    transform: rotate(180deg);
+  }
+
+  .search {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .no-match {
+    margin: 0;
+    padding: 8px 16px;
   }
 
   .queue ul {
