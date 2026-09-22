@@ -29,10 +29,12 @@ type Result struct {
 	Cover   string   `json:"cover"`
 	Lyrics  int      `json:"lyrics"`
 	Synced  int      `json:"synced"`
+
+	Undo Undo `json:"-"`
 }
 
 func Execute(p Plan, inbox, libraryDir string, mode Mode, lang i18n.Lang) (Result, error) {
-	res := Result{Mode: string(mode), Ignored: p.Ignored}
+	res := Result{Mode: string(mode), Ignored: p.Ignored, Undo: Undo{Mode: string(mode)}}
 	if len(p.Tracks) == 0 {
 		return res, i18n.Errorf(lang, "filing.emptyPlan")
 	}
@@ -69,12 +71,30 @@ func Execute(p Plan, inbox, libraryDir string, mode Mode, lang i18n.Lang) (Resul
 			tags[taglib.Lyrics] = []string{words.Plain}
 			res.Lyrics++
 		}
+		before, err := taglib.ReadTags(source)
+		if err != nil {
+			rollback()
+			return res, fmt.Errorf("%s : %w", track.Source, err)
+		}
 		if err := copyAndTag(source, destinations[i], tags, embedded, lang); err != nil {
 			rollback()
 			return res, fmt.Errorf("%s : %w", track.Source, err)
 		}
 		written = append(written, destinations[i])
 		res.Files = append(res.Files, track.Destination)
+
+		info, err := os.Stat(destinations[i])
+		if err != nil {
+			rollback()
+			return res, fmt.Errorf("%s : %w", track.Source, err)
+		}
+		res.Undo.Tracks = append(res.Undo.Tracks, UndoTrack{
+			Source:      track.Source,
+			Destination: track.Destination,
+			Size:        info.Size(),
+			ModTime:     info.ModTime().UnixNano(),
+			Tags:        changedTags(before, tags),
+		})
 
 		if p.LyricsSync && words.Synced != "" {
 			lrc := lrcPath(destinations[i])
@@ -83,6 +103,7 @@ func Execute(p Plan, inbox, libraryDir string, mode Mode, lang i18n.Lang) (Resul
 			} else {
 				written = append(written, lrc)
 				res.Synced++
+				res.Undo.Extras = append(res.Undo.Extras, lrcPath(track.Destination))
 			}
 		}
 	}
@@ -94,11 +115,14 @@ func Execute(p Plan, inbox, libraryDir string, mode Mode, lang i18n.Lang) (Resul
 			slog.Warn("cover not written", "file", p.Cover, "err", err)
 		} else if saved {
 			res.Cover = p.Cover
+			res.Undo.Extras = append(res.Undo.Extras, p.Cover)
 		}
 	}
 
 	if mode == ModeMove {
+		sources := make([]string, 0, len(p.Tracks))
 		for _, track := range p.Tracks {
+			sources = append(sources, track.Source)
 			source := filepath.Join(inbox, filepath.FromSlash(track.Source))
 			if err := os.Remove(source); err != nil {
 				slog.Warn("original not deleted", "file", track.Source, "err", err)
@@ -106,12 +130,26 @@ func Execute(p Plan, inbox, libraryDir string, mode Mode, lang i18n.Lang) (Resul
 			}
 			res.Deleted++
 		}
-		pruneEmptyDirs(inbox, p.Tracks)
+		pruneEmptyDirs(inbox, sources)
 	}
 	return res, nil
 }
 
 func copyAndTag(source, dest string, tags map[string][]string, image []byte, lang i18n.Lang) error {
+	return copyThen(source, dest, func(tmp string) error {
+		if err := taglib.WriteTags(tmp, tags, taglib.Clear); err != nil {
+			return fmt.Errorf("%s: %w", i18n.T(lang, "filing.writingTags"), err)
+		}
+		if len(image) > 0 {
+			if err := taglib.WriteImageOptions(tmp, image, 0, "Front Cover", "", "image/jpeg"); err != nil {
+				slog.Warn("cover not embedded", "file", dest, "err", err)
+			}
+		}
+		return nil
+	})
+}
+
+func copyThen(source, dest string, finish func(tmp string) error) error {
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return err
 	}
@@ -123,13 +161,13 @@ func copyAndTag(source, dest string, tags map[string][]string, image []byte, lan
 	tmpName := tmp.Name()
 	defer os.Remove(tmpName)
 
-	inbox, err := os.Open(source)
+	in, err := os.Open(source)
 	if err != nil {
 		tmp.Close()
 		return err
 	}
-	_, err = io.Copy(tmp, inbox)
-	inbox.Close()
+	_, err = io.Copy(tmp, in)
+	in.Close()
 	if err == nil {
 		err = tmp.Sync()
 	}
@@ -140,13 +178,8 @@ func copyAndTag(source, dest string, tags map[string][]string, image []byte, lan
 		return err
 	}
 
-	if err := taglib.WriteTags(tmpName, tags, taglib.Clear); err != nil {
-		return fmt.Errorf("%s: %w", i18n.T(lang, "filing.writingTags"), err)
-	}
-	if len(image) > 0 {
-		if err := taglib.WriteImageOptions(tmpName, image, 0, "Front Cover", "", "image/jpeg"); err != nil {
-			slog.Warn("cover not embedded", "file", dest, "err", err)
-		}
+	if err := finish(tmpName); err != nil {
+		return err
 	}
 	if err := os.Chmod(tmpName, 0o644); err != nil {
 		return err
@@ -191,11 +224,11 @@ func safeDestination(libraryDir, relative string, lang i18n.Lang) (string, error
 	return dest, nil
 }
 
-func pruneEmptyDirs(inbox string, tracks []PlannedTrack) {
+func pruneEmptyDirs(root string, files []string) {
 	seen := map[string]bool{}
-	for _, track := range tracks {
-		dir := filepath.Dir(filepath.Join(inbox, filepath.FromSlash(track.Source)))
-		for dir != inbox && !seen[dir] && strings.HasPrefix(dir, inbox) {
+	for _, file := range files {
+		dir := filepath.Dir(filepath.Join(root, filepath.FromSlash(file)))
+		for dir != root && !seen[dir] && strings.HasPrefix(dir, root) {
 			seen[dir] = true
 			if err := os.Remove(dir); err != nil {
 				break // not empty: stop here

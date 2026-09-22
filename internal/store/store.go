@@ -454,6 +454,14 @@ type Filed struct {
 	Year        int       `json:"year"`
 	Tracks      int       `json:"tracks"`
 	Destination string    `json:"destination"`
+	Undoes      int64     `json:"undoes,omitempty"`
+}
+
+type FiledCounts struct {
+	Total  int       `json:"total"`
+	Filed  int       `json:"filed"`
+	Undone int       `json:"undone"`
+	Last   time.Time `json:"last"`
 }
 
 func (s *Store) RecordFiled(f Filed) error {
@@ -465,24 +473,44 @@ func (s *Store) RecordFiled(f Filed) error {
 	})
 }
 
-// Newest first, with how many there are in all.
-func (s *Store) FiledLog(limit int) ([]Filed, int, error) {
-	out := []Filed{}
-	total := 0
+func (s *Store) FiledAt(id int64) (*Filed, error) {
+	var f *Filed
 	err := s.db.View(func(tx *bbolt.Tx) error {
-		total = tx.Bucket(bFiled).Stats().KeyN
+		raw := tx.Bucket(bFiled).Get(itob(id))
+		if raw == nil {
+			return nil
+		}
+		f = &Filed{}
+		return json.Unmarshal(raw, f)
+	})
+	return f, err
+}
+
+// Newest first, with how many there are in all.
+func (s *Store) FiledLog(limit int) ([]Filed, FiledCounts, error) {
+	out := []Filed{}
+	var counts FiledCounts
+	err := s.db.View(func(tx *bbolt.Tx) error {
 		cursor := tx.Bucket(bFiled).Cursor()
 		for k, raw := cursor.Last(); k != nil; k, raw = cursor.Prev() {
-			if limit > 0 && len(out) == limit {
-				return nil
-			}
 			var f Filed
 			if err := json.Unmarshal(raw, &f); err != nil {
 				return err
 			}
-			out = append(out, f)
+			counts.Total++
+			if f.Undoes != 0 {
+				counts.Undone++
+			} else {
+				counts.Filed++
+				if counts.Last.IsZero() {
+					counts.Last = f.Date
+				}
+			}
+			if limit <= 0 || len(out) < limit {
+				out = append(out, f)
+			}
 		}
 		return nil
 	})
-	return out, total, err
+	return out, counts, err
 }

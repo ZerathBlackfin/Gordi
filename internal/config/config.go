@@ -3,6 +3,7 @@ package config
 import (
 	"gordi/internal/i18n"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -37,6 +38,9 @@ type Config struct {
 
 	Lyrics     bool
 	LyricsSync bool
+
+	UndoDays int
+	BinDir   string
 }
 
 func Load() Config {
@@ -56,7 +60,9 @@ func Load() Config {
 		CoverEmbed:    envBool("GORDI_COVER_EMBED"),
 		Lyrics:        envBool("GORDI_LYRICS"),
 		LyricsSync:    envBool("GORDI_LYRICS_SYNC"),
+		UndoDays:      envInt("GORDI_UNDO_DAYS", 7),
 	}
+	c.BinDir = filepath.Join(filepath.Dir(c.DBPath), ".bin")
 	if c.Mode != ModeMove && c.Mode != ModeCopy {
 		c.Mode = ModeMove
 	}

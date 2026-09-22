@@ -42,5 +42,9 @@
   "template.artistAlbum": "Artiste / Album (année) / 01 - Titre",
   "template.artistDash": "Artiste - Album (année) / 01 - Titre",
   "template.singleFolder": "Un dossier par album",
-  "template.yearAlbum": "Artiste / 1979 - Album / 01 - Titre"
+  "template.yearAlbum": "Artiste / 1979 - Album / 01 - Titre",
+  "undo.changed": "%s a été modifié après le rangement : annuler ferait perdre ce changement.",
+  "undo.expired": "Trop tard pour annuler celui-ci.",
+  "undo.missing": "%s n'est plus dans la bibliothèque.",
+  "undo.occupied": "%s est déjà revenu dans le dossier d'entrée."
 }

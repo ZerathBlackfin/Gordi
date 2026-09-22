@@ -35,6 +35,15 @@ export function day(iso) {
   }).format(d)
 }
 
+export function time(iso) {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return new Intl.DateTimeFormat(currentLanguage.value, {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(d)
+}
+
 export function durationGap(a, b) {
   if (!a || !b) return null
   return Math.round((b - a) / 1000)

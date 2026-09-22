@@ -241,6 +241,7 @@ func (a *App) Run(ctx context.Context) {
 		if err := a.Store.CachePurge(); err != nil {
 			slog.Error("cache sweep", "err", err)
 		}
+		a.purgeUndo()
 
 		a.Updates.Refresh(ctx)
 

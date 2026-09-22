@@ -44,6 +44,7 @@
         cover_embed: r.cover_embed,
         lyrics: r.lyrics,
         lyrics_sync: r.lyrics_sync,
+        undo_days: r.undo_days,
       }
       setLanguage(r.lang)
       preview = r.preview
@@ -214,6 +215,17 @@
           </label>
         {/each}
       </div>
+
+      <label class="toggle undo">
+        <span class="label">
+          <span>{t('settings.undo')}</span>
+          <span class="muted small">{t('settings.undoHint')}</span>
+        </span>
+        <span class="days">
+          <input type="number" min="0" max="365" bind:value={draft.undo_days} />
+          <span class="muted small">{t('settings.days', { n: draft.undo_days })}</span>
+        </span>
+      </label>
     </section>
 
     <section>
@@ -309,11 +321,11 @@
 
     <section>
       <h2>{t('settings.filed')}</h2>
-      {#if !filed || filed.total === 0}
+      {#if !filed || filed.filed === 0}
         <p class="muted hint">{t('settings.filedNone')}</p>
       {:else}
         <p class="muted hint">
-          {t('settings.filedSummary', { n: filed.total, date: day(filed.entries[0].date) })} ·
+          {t('settings.filedSummary', { n: filed.filed, date: day(filed.last) })} ·
           <button class="quiet" onclick={() => navigate('/filed')}>{t('settings.filedOpen')}</button>
         </p>
       {/if}
@@ -483,6 +495,21 @@
   .toggle .label {
     display: flex;
     flex-direction: column;
+  }
+
+  .undo {
+    margin-top: 14px;
+  }
+
+  .days {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .days input {
+    width: 64px;
   }
 
   .segmented {

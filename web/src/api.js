@@ -53,6 +53,7 @@ export function searchReleases(id, artist, album, filters = {}) {
 }
 
 export const getFiled = (limit = 50) => request(`/filed?limit=${limit}`)
+export const undoFiled = (id) => request(`/filed/${id}/undo`, { method: 'POST' })
 
 export const getRelease = (mbid) => tracked(`/releases/${mbid}`)
 export const getLyrics = (id, releaseId) =>

@@ -55,12 +55,25 @@ func Handler(a *app.App, web fs.FS) http.Handler {
 
 	mux.HandleFunc("GET /api/filed", func(w http.ResponseWriter, r *http.Request) {
 		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-		entries, total, err := a.Store.FiledLog(limit)
+		journal, err := a.FiledLog(limit)
 		if err != nil {
 			fail(w, http.StatusInternalServerError, err)
 			return
 		}
-		ok(w, map[string]any{"total": total, "entries": entries})
+		ok(w, journal)
+	})
+
+	mux.HandleFunc("POST /api/filed/{id}/undo", func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+		if err != nil {
+			fail(w, http.StatusBadRequest, err)
+			return
+		}
+		if err := a.Undo(id); err != nil {
+			fail(w, http.StatusBadRequest, err)
+			return
+		}
+		ok(w, map[string]bool{"undone": true})
 	})
 
 	mux.HandleFunc("GET /api/albums/{id}", func(w http.ResponseWriter, r *http.Request) {

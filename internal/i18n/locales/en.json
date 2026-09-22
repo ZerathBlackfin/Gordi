@@ -42,5 +42,9 @@
   "template.artistAlbum": "Artist / Album (year) / 01 - Title",
   "template.artistDash": "Artist - Album (year) / 01 - Title",
   "template.singleFolder": "One folder per album",
-  "template.yearAlbum": "Artist / 1979 - Album / 01 - Title"
+  "template.yearAlbum": "Artist / 1979 - Album / 01 - Title",
+  "undo.changed": "%s was changed after filing; undoing would lose that change.",
+  "undo.expired": "Too late to undo this one.",
+  "undo.missing": "%s is no longer in the library.",
+  "undo.occupied": "%s is already back in the inbox."
 }

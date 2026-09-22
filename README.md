@@ -97,6 +97,7 @@ Everything comes from the environment. The naming patterns and a few preferences
 | `GORDI_COVER_EMBED` | off | embed the cover in every file |
 | `GORDI_LYRICS` | off | write the words into the tags |
 | `GORDI_LYRICS_SYNC` | off | write an `.lrc` beside every track |
+| `GORDI_UNDO_DAYS` | `7` | days a filing can be undone from the log, `0` disables |
 | `PUID` / `PGID` | `0` | who the files belong to (see User and group) |
 | `TZ` | `Europe/Paris` | timezone |
 
@@ -149,7 +150,8 @@ Filing moves your files, so:
 - an existing file is never overwritten. Filing stops instead;
 - copies go to a temporary name then get renamed, so no half-written file ever appears in your library;
 - in move mode the originals are deleted only once everything else worked. If anything fails, what was just written is removed and the originals stay put;
-- files are matched to tracks by number, then by title, and by order only as a last resort. Rows matched that way are flagged.
+- files are matched to tracks by number, then by title, and by order only as a last resort. Rows matched that way are flagged;
+- for 7 days, a filing can be undone from the filing log: the files go back to the inbox with their old names and tags. Only what changed is kept, in `/config/.bin`, never the files themselves. A file edited in the library since is left alone, and an embedded cover that was replaced stays replaced.
 
 ## What the scan picks up
 

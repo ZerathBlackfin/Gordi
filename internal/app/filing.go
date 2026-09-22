@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"path/filepath"
+	"time"
 
 	"gordi/internal/apply"
 	"gordi/internal/config"
@@ -73,15 +74,18 @@ func (a *App) Apply(ctx context.Context, albumID int64, releaseID string, mode a
 	}
 	slog.Info("album filed", "album", albumID, "files", res.Filed, "mode", res.Mode)
 
-	if err := a.Store.RecordFiled(store.Filed{
+	filed := store.Filed{
+		Date:        time.Now().UTC(),
 		Artist:      album.Artist,
 		Album:       album.Title,
 		Year:        album.Year,
 		Tracks:      res.Filed,
 		Destination: filepath.Dir(p.Tracks[0].Destination),
-	}); err != nil {
+	}
+	if err := a.Store.RecordFiled(filed); err != nil {
 		slog.Error("album filed but not logged", "album", albumID, "err", err)
 	}
+	a.keepUndo(filed.Date.UnixNano(), albumID, res.Undo)
 
 	go func() {
 		if _, err := a.Rescan(); err != nil {
