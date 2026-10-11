@@ -11,7 +11,7 @@
   import { compare, split, labelFor, linkFor } from './diff.js'
   import { t, currentLanguage } from './i18n.svelte.js'
 
-  let { albums = [], mode = 'move', inbox = '', prefetch = null, onchange } = $props()
+  let { albums = [], mode = 'move', inbox = '', linkDir = '', prefetch = null, onchange } = $props()
 
   let selectedId = $state(null)
   let album = $state(null)
@@ -26,6 +26,7 @@
   let pickerOpen = $state(false)
   let switching = $state(false)
   let filed = $state(null)
+  let linked = $state(false)
   let expanded = $state({})
   let allExpanded = $state(false)
   let showAllRows = $state(readFullView())
@@ -123,6 +124,7 @@
     release = null
     plan = null
     filed = null
+    linked = false
     coverless = false
     expanded = {}
     allExpanded = false
@@ -170,7 +172,7 @@
     busy = true
     error = ''
     try {
-      filed = await api.apply(selectedId, release.id, mode, dropped)
+      filed = await api.apply(selectedId, release.id, mode, dropped, linked)
       onchange?.()
       const next = visible.find((a) => a.id !== selectedId)
       if (next) setTimeout(() => open(next.id), 900)
@@ -519,7 +521,7 @@
               >{folder}</span
             >{#if filed.deleted}, {t('action.originalsDeleted')}{/if}{#if filed.cover}, {t(
                 'action.coverAdded',
-              )}{/if}{#if filed.ignored?.length}, {t('action.leftBehind', {
+              )}{/if}{#if filed.linked}, {t('action.linked')}{/if}{#if filed.ignored?.length}, {t('action.leftBehind', {
                 n: filed.ignored.length,
               })}{/if}.
           </p>
@@ -839,6 +841,12 @@
               <span class="muted small">{t('action.lyrics')}</span>
             {/if}
           </p>
+          {#if linkDir}
+            <label class="link-option small">
+              <input type="checkbox" bind:checked={linked} disabled={busy} />
+              <span>{t('action.linkTo')} <span class="mono">{linkDir}</span></span>
+            </label>
+          {/if}
           <button class="file-button" onclick={file} disabled={!readyToFile}>
             {busy ? t('action.filing') : t('action.file')}
           </button>
@@ -1636,6 +1644,15 @@
     flex-direction: column;
     gap: 1px;
     font-size: 13px;
+    word-break: break-all;
+  }
+
+  .link-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    cursor: pointer;
     word-break: break-all;
   }
 

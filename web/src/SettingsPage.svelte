@@ -45,6 +45,9 @@
         lyrics: r.lyrics,
         lyrics_sync: r.lyrics_sync,
         undo_days: r.undo_days,
+        input: r.input,
+        output: r.output,
+        link: r.link,
       }
       setLanguage(r.lang)
       preview = r.preview
@@ -194,6 +197,27 @@
       {#if customized}
         <button class="quiet" onclick={resetToServer}>{t('settings.reset')}</button>
       {/if}
+    </section>
+
+    <section>
+      <h2>{t('settings.folders')}</h2>
+      <p class="muted hint">{t('settings.foldersHint')}</p>
+
+      <label class="pattern">
+        <span class="eyebrow">{t('settings.input')}</span>
+        <input class="mono" bind:value={draft.input} spellcheck="false" />
+      </label>
+
+      <label class="pattern">
+        <span class="eyebrow">{t('settings.output')}</span>
+        <input class="mono" bind:value={draft.output} spellcheck="false" />
+      </label>
+
+      <label class="pattern">
+        <span class="eyebrow">{t('settings.link')}</span>
+        <input class="mono" bind:value={draft.link} spellcheck="false" />
+        <span class="muted small">{t('settings.linkHint')}</span>
+      </label>
     </section>
 
     <section>

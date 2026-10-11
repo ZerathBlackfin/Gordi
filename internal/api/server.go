@@ -224,12 +224,13 @@ func Handler(a *app.App, web fs.FS) http.Handler {
 			ReleaseID string   `json:"release_id"`
 			Mode      string   `json:"mode"`
 			NoSync    []string `json:"no_sync"`
+			Link      bool     `json:"link"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			fail(w, http.StatusBadRequest, err)
 			return
 		}
-		res, err := a.Apply(r.Context(), id, body.ReleaseID, a.RequestedMode(body.Mode), body.NoSync)
+		res, err := a.Apply(r.Context(), id, body.ReleaseID, a.RequestedMode(body.Mode), body.NoSync, body.Link)
 		if err != nil {
 			fail(w, http.StatusBadRequest, err)
 			return

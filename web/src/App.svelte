@@ -148,6 +148,7 @@
       {prefetch}
       mode={status?.mode ?? 'move'}
       inbox={status?.input ?? ''}
+      linkDir={status?.link ?? ''}
       onchange={load}
     />
   {/if}

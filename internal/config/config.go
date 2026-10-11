@@ -20,6 +20,7 @@ type Config struct {
 	Addr      string
 	Input     string
 	Output    string
+	Link      string
 	DBPath    string
 	Mode      Mode
 	ScanEvery time.Duration
@@ -48,6 +49,7 @@ func Load() Config {
 		Addr:          env("GORDI_ADDR", ":7373"),
 		Input:         env("GORDI_INPUT", "/input"),
 		Output:        env("GORDI_OUTPUT", "/output"),
+		Link:          env("GORDI_LINK", ""),
 		DBPath:        env("GORDI_DB", "/config/gordi.bolt"),
 		Mode:          Mode(env("GORDI_MODE", string(ModeMove))),
 		ScanEvery:     time.Duration(envInt("GORDI_SCAN_EVERY", 60)) * time.Second,

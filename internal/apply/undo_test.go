@@ -154,3 +154,37 @@ func TestUndoingAMoveStopsOnAnOccupiedInbox(t *testing.T) {
 		t.Error("the filed copy was removed anyway")
 	}
 }
+
+func TestUndoRemovesOnlyTheLinksItMade(t *testing.T) {
+	libraryDir, linkDir := t.TempDir(), t.TempDir()
+	for _, name := range []string{"A/kept.flac", "A/replaced.flac"} {
+		path := filepath.Join(libraryDir, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(name), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := hardlink(libraryDir, linkDir, name, i18n.EN); err != nil {
+			t.Fatal(err)
+		}
+	}
+	replaced := filepath.Join(linkDir, "A", "replaced.flac")
+	if err := os.Remove(replaced); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(replaced, []byte("someone else"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	u := Undo{LinkDir: linkDir, Links: []string{"A/kept.flac", "A/replaced.flac"}}
+	if err := Reverse(u, t.TempDir(), libraryDir, i18n.EN); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(linkDir, "A", "kept.flac")); err == nil {
+		t.Error("the link stayed behind")
+	}
+	if _, err := os.Stat(replaced); err != nil {
+		t.Error("a file that was no longer the link was removed")
+	}
+}

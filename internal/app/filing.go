@@ -35,7 +35,7 @@ func (a *App) Plan(ctx context.Context, albumID int64, releaseID string, mode ap
 	return p, nil
 }
 
-func (a *App) Apply(ctx context.Context, albumID int64, releaseID string, mode apply.Mode, noSync []string) (apply.Result, error) {
+func (a *App) Apply(ctx context.Context, albumID int64, releaseID string, mode apply.Mode, noSync []string, link bool) (apply.Result, error) {
 	album, release, err := a.albumAndRelease(ctx, albumID, releaseID)
 	if err != nil {
 		return apply.Result{}, err
@@ -45,6 +45,9 @@ func (a *App) Apply(ctx context.Context, albumID int64, releaseID string, mode a
 		return apply.Result{}, err
 	}
 	p.Mode = string(mode)
+	if link {
+		p.LinkDir = a.Link()
+	}
 	wantFile, wantEmbed := a.CoverWanted(), a.CoverEmbedded()
 	if (wantFile || wantEmbed) && release.CoverURL != "" {
 		image, err := a.MB.CoverArt(ctx, release.ID)
@@ -64,7 +67,7 @@ func (a *App) Apply(ctx context.Context, albumID int64, releaseID string, mode a
 		p.Words = a.Words(ctx, release, p, byPath(album.Tracks), set(noSync))
 	}
 
-	res, err := apply.Execute(p, a.Cfg.Input, a.Cfg.Output, mode, a.Lang())
+	res, err := apply.Execute(p, a.Input(), a.Output(), mode, a.Lang())
 	if err != nil {
 		return apply.Result{}, err
 	}
@@ -72,7 +75,7 @@ func (a *App) Apply(ctx context.Context, albumID int64, releaseID string, mode a
 	if err := a.Store.SetStatus(albumID, store.StatusDone); err != nil {
 		slog.Error("album filed but status not saved", "album", albumID, "err", err)
 	}
-	slog.Info("album filed", "album", albumID, "files", res.Filed, "mode", res.Mode)
+	slog.Info("album filed", "album", albumID, "files", res.Filed, "mode", res.Mode, "linked", res.Linked)
 
 	filed := store.Filed{
 		Date:        time.Now().UTC(),

@@ -94,7 +94,7 @@ func (a *App) Cover(albumID int64) ([]byte, string, error) {
 		if t.Audio.Cover == "" {
 			continue
 		}
-		image, err := library.Cover(filepath.Join(a.Cfg.Input, t.RelPath))
+		image, err := library.Cover(filepath.Join(a.Input(), t.RelPath))
 		if err == nil && len(image) > 0 {
 			return image, t.Audio.Cover, nil
 		}
@@ -112,7 +112,7 @@ func (a *App) Audio(albumID int64, relPath string) (string, error) {
 	}
 	for _, t := range album.Tracks {
 		if t.RelPath == relPath {
-			return filepath.Join(a.Cfg.Input, filepath.FromSlash(relPath)), nil
+			return filepath.Join(a.Input(), filepath.FromSlash(relPath)), nil
 		}
 	}
 	return "", i18n.Errorf(a.Lang(), "filing.unknownTrack", relPath)
@@ -140,6 +140,7 @@ type Status struct {
 	Update   *update.Release  `json:"update"`
 	Input    string           `json:"input"`
 	Output   string           `json:"output"`
+	Link     string           `json:"link"`
 	Mode     string           `json:"mode"`
 	Scanning bool             `json:"scanning"`
 	LastScan *time.Time       `json:"last_scan"`
@@ -174,8 +175,9 @@ func (a *App) Status() (Status, error) {
 	s := Status{
 		Version:  build.Version,
 		Update:   a.Updates.Latest(),
-		Input:    a.Cfg.Input,
-		Output:   a.Cfg.Output,
+		Input:    a.Input(),
+		Output:   a.Output(),
+		Link:     a.Link(),
 		Mode:     string(a.Cfg.Mode),
 		Scanning: a.scanning,
 		Last:     a.last,
@@ -210,7 +212,7 @@ func (a *App) Rescan() (store.SyncResult, error) {
 	var res store.SyncResult
 	if err == nil {
 		var albums []library.Album
-		if albums, err = library.Scan(a.Cfg.Input, known, a.Lang()); err == nil {
+		if albums, err = library.Scan(a.Input(), known, a.Lang()); err == nil {
 			if res, err = a.Store.Sync(albums); err == nil {
 				a.rememberTracks(albums)
 			}

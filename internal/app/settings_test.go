@@ -206,3 +206,24 @@ func contains(s, sub string) bool {
 	}
 	return false
 }
+
+func TestFoldersMustExist(t *testing.T) {
+	a := testApp(t)
+	dir := t.TempDir()
+	missing, relative := filepath.Join(dir, "nowhere"), "music"
+
+	if err := a.Update(SettingsPatch{Output: &dir}); err != nil {
+		t.Fatal(err)
+	}
+	if a.Output() != dir {
+		t.Errorf("got %q, want %q", a.Output(), dir)
+	}
+	for _, bad := range []*string{&missing, &relative} {
+		if err := a.Update(SettingsPatch{Link: bad}); err == nil {
+			t.Errorf("folder wrongly accepted: %q", *bad)
+		}
+	}
+	if a.Link() != a.Cfg.Link {
+		t.Errorf("a refused folder was kept: %q", a.Link())
+	}
+}

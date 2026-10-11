@@ -63,8 +63,8 @@ export const audioURL = (id, source) =>
 export const getPlan = (id, releaseId, mode) =>
   request(`/albums/${id}/plan?release_id=${encodeURIComponent(releaseId)}&mode=${mode}`)
 
-export const apply = (id, releaseId, mode, noSync = []) =>
+export const apply = (id, releaseId, mode, noSync = [], link = false) =>
   request(`/albums/${id}/apply`, {
     method: 'POST',
-    body: JSON.stringify({ release_id: releaseId, mode, no_sync: noSync }),
+    body: JSON.stringify({ release_id: releaseId, mode, no_sync: noSync, link }),
   })

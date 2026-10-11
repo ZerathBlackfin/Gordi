@@ -16,6 +16,7 @@ services:
       PGID: "${PGID:-0}"
       GORDI_LANG: "${GORDI_LANG:-en}"
       GORDI_MODE: "${GORDI_MODE:-move}"
+      GORDI_LINK: "${GORDI_LINK:-}"
       GORDI_SCAN_EVERY: "${GORDI_SCAN_EVERY:-60}"
       GORDI_CONTACT: "${GORDI_CONTACT:-https://github.com/ZerathBlackfin/Gordi}"
       GORDI_PREFETCH_EVERY: "${GORDI_PREFETCH_EVERY:-3}"

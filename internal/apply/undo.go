@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"slices"
 
 	"gordi/internal/i18n"
@@ -17,6 +18,9 @@ type Undo struct {
 	Mode   string      `json:"mode"`
 	Tracks []UndoTrack `json:"tracks"`
 	Extras []string    `json:"extras,omitempty"`
+
+	LinkDir string   `json:"link_dir,omitempty"`
+	Links   []string `json:"links,omitempty"`
 }
 
 type UndoTrack struct {
@@ -91,6 +95,21 @@ func Reverse(u Undo, inbox, libraryDir string, lang i18n.Lang) error {
 		relative = append(relative, extra)
 	}
 
+	for _, link := range u.Links {
+		path, err := safeDestination(u.LinkDir, link, lang)
+		if err != nil {
+			return err
+		}
+		linked, err := os.Stat(path)
+		if err != nil {
+			continue
+		}
+		original, err := os.Stat(filepath.Join(libraryDir, filepath.FromSlash(link)))
+		if err == nil && os.SameFile(original, linked) {
+			filed = append(filed, path)
+		}
+	}
+
 	restored := make([]string, 0, len(restores))
 	for _, r := range restores {
 		err := copyThen(r.from, r.to, func(tmp string) error {
@@ -117,5 +136,8 @@ func Reverse(u Undo, inbox, libraryDir string, lang i18n.Lang) error {
 		}
 	}
 	pruneEmptyDirs(libraryDir, relative)
+	if u.LinkDir != "" {
+		pruneEmptyDirs(u.LinkDir, u.Links)
+	}
 	return nil
 }

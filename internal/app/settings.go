@@ -1,6 +1,9 @@
 package app
 
 import (
+	"log/slog"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -25,6 +28,9 @@ const (
 	keyLyrics        = "lyrics"
 	keyLyricsSync    = "lyrics_sync"
 	keyUndoDays      = "undo_days"
+	keyInput         = "input"
+	keyOutput        = "output"
+	keyLink          = "link"
 )
 
 type Values struct {
@@ -40,6 +46,9 @@ type Values struct {
 	Lyrics        bool   `json:"lyrics"`
 	LyricsSync    bool   `json:"lyrics_sync"`
 	UndoDays      int    `json:"undo_days"`
+	Input         string `json:"input"`
+	Output        string `json:"output"`
+	Link          string `json:"link"`
 }
 
 type Settings struct {
@@ -77,6 +86,12 @@ func (a *App) CoverEmbedded() bool { return a.boolSetting(keyCoverEmbed, a.Cfg.C
 func (a *App) LyricsWanted() bool { return a.boolSetting(keyLyrics, a.Cfg.Lyrics) }
 
 func (a *App) LyricsSynced() bool { return a.boolSetting(keyLyricsSync, a.Cfg.LyricsSync) }
+
+func (a *App) Input() string { return a.stringSetting(keyInput, a.Cfg.Input) }
+
+func (a *App) Output() string { return a.stringSetting(keyOutput, a.Cfg.Output) }
+
+func (a *App) Link() string { return a.stringSetting(keyLink, a.Cfg.Link) }
 
 func (a *App) UndoDays() int { return a.intSetting(keyUndoDays, a.Cfg.UndoDays) }
 
@@ -132,6 +147,9 @@ func (a *App) Settings() Settings {
 			Lyrics:        a.LyricsWanted(),
 			LyricsSync:    a.LyricsSynced(),
 			UndoDays:      a.UndoDays(),
+			Input:         a.Input(),
+			Output:        a.Output(),
+			Link:          a.Link(),
 		},
 		Languages: languageList(),
 		Fields:    apply.DisplayFields(lang),
@@ -140,7 +158,7 @@ func (a *App) Settings() Settings {
 		Cache:     a.Store.CacheSize(),
 	}
 	r.Preview = Preview(patterns, lang)
-	for _, key := range []string{keyPattern, keyPatternMulti, keyMode, keyScanEvery, keyPrefetchEvery, keyMBContact, keyLang, keyCover, keyCoverEmbed, keyLyrics, keyLyricsSync, keyUndoDays} {
+	for _, key := range []string{keyPattern, keyPatternMulti, keyMode, keyScanEvery, keyPrefetchEvery, keyMBContact, keyLang, keyCover, keyCoverEmbed, keyLyrics, keyLyricsSync, keyUndoDays, keyInput, keyOutput, keyLink} {
 		if _, ok := a.Store.Setting(key); ok {
 			r.Customized = append(r.Customized, key)
 		}
@@ -164,6 +182,9 @@ type SettingsPatch struct {
 	Lyrics        *bool   `json:"lyrics"`
 	LyricsSync    *bool   `json:"lyrics_sync"`
 	UndoDays      *int    `json:"undo_days"`
+	Input         *string `json:"input"`
+	Output        *string `json:"output"`
+	Link          *string `json:"link"`
 }
 
 func (a *App) Update(m SettingsPatch) error {
@@ -229,6 +250,26 @@ func (a *App) Update(m SettingsPatch) error {
 			return err
 		}
 	}
+	if m.Input != nil && strings.TrimSpace(*m.Input) != a.Input() {
+		if err := a.setString(keyInput, *m.Input, a.Cfg.Input, a.validateDir); err != nil {
+			return err
+		}
+		go func() {
+			if _, err := a.Rescan(); err != nil {
+				slog.Debug("rescan after input change", "err", err)
+			}
+		}()
+	}
+	if m.Output != nil && strings.TrimSpace(*m.Output) != a.Output() {
+		if err := a.setString(keyOutput, *m.Output, a.Cfg.Output, a.validateDir); err != nil {
+			return err
+		}
+	}
+	if m.Link != nil && strings.TrimSpace(*m.Link) != a.Link() {
+		if err := a.setString(keyLink, *m.Link, a.Cfg.Link, a.validateDir); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -272,6 +313,16 @@ func (a *App) ClearCache() (int, error) {
 func (a *App) validateMode(v string) error {
 	if v != string(config.ModeCopy) && v != string(config.ModeMove) {
 		return i18n.Errorf(a.Lang(), "setting.unknownMode")
+	}
+	return nil
+}
+
+func (a *App) validateDir(v string) error {
+	if !filepath.IsAbs(v) {
+		return i18n.Errorf(a.Lang(), "setting.notAbsolute", v)
+	}
+	if info, err := os.Stat(v); err != nil || !info.IsDir() {
+		return i18n.Errorf(a.Lang(), "setting.notFolder", v)
 	}
 	return nil
 }

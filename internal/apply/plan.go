@@ -47,6 +47,8 @@ type Plan struct {
 
 	Art Art `json:"-"`
 
+	LinkDir string `json:"-"`
+
 	Words map[string]Words `json:"-"`
 }
 

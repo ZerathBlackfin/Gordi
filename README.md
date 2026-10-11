@@ -77,13 +77,14 @@ On Synology the pair is usually `1026` and `100`. Left unset, Gordi writes as ro
 
 ## Settings
 
-Everything comes from the environment. The naming patterns and a few preferences can also be changed later on `/settings`.
+Everything comes from the environment. The folders, the naming patterns and a few preferences can also be changed later on `/settings`.
 
 | Variable | Default | What it does |
 | --- | --- | --- |
 | `GORDI_INPUT` | `./media/inbox` | folder to sort through |
 | `GORDI_OUTPUT` | `./media/library` | destination |
 | `GORDI_MODE` | `move` | `move` or `copy` (keeps the original) |
+| `GORDI_LINK` | off | second folder an album can also be hard-linked into, same volume as the library |
 | `GORDI_PORT` | `7373` | host port, used by docker-compose only |
 | `GORDI_ADDR` | `:7373` | address Gordi listens on inside the container |
 | `GORDI_DB` | `/config/gordi.bolt` | where the database lives |

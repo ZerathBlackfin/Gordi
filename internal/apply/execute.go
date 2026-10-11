@@ -1,12 +1,14 @@
 package apply
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"gordi/internal/i18n"
 
@@ -29,6 +31,7 @@ type Result struct {
 	Cover   string   `json:"cover"`
 	Lyrics  int      `json:"lyrics"`
 	Synced  int      `json:"synced"`
+	Linked  int      `json:"linked"`
 
 	Undo Undo `json:"-"`
 }
@@ -49,6 +52,17 @@ func Execute(p Plan, inbox, libraryDir string, mode Mode, lang i18n.Lang) (Resul
 			return res, i18n.Errorf(lang, "filing.alreadyExists", track.Destination)
 		}
 		destinations = append(destinations, dest)
+
+		if p.LinkDir == "" {
+			continue
+		}
+		link, err := safeDestination(p.LinkDir, track.Destination, lang)
+		if err != nil {
+			return res, err
+		}
+		if _, err := os.Lstat(link); err == nil {
+			return res, i18n.Errorf(lang, "filing.alreadyExists", link)
+		}
 	}
 
 	written := make([]string, 0, len(p.Tracks))
@@ -114,8 +128,33 @@ func Execute(p Plan, inbox, libraryDir string, mode Mode, lang i18n.Lang) (Resul
 		if err != nil {
 			slog.Warn("cover not written", "file", p.Cover, "err", err)
 		} else if saved {
+			written = append(written, filepath.Join(libraryDir, filepath.FromSlash(p.Cover)))
 			res.Cover = p.Cover
 			res.Undo.Extras = append(res.Undo.Extras, p.Cover)
+		}
+	}
+
+	if p.LinkDir != "" {
+		res.Undo.LinkDir = p.LinkDir
+		for _, relative := range res.Files {
+			link, err := hardlink(libraryDir, p.LinkDir, relative, lang)
+			if err != nil {
+				rollback()
+				if errors.Is(err, syscall.EXDEV) {
+					return res, i18n.Errorf(lang, "filing.linkOtherDisk", p.LinkDir)
+				}
+				return res, i18n.Errorf(lang, "filing.linkFailed", relative, err)
+			}
+			written = append(written, link)
+			res.Undo.Links = append(res.Undo.Links, relative)
+			res.Linked++
+		}
+		for _, relative := range res.Undo.Extras {
+			if _, err := hardlink(libraryDir, p.LinkDir, relative, lang); err != nil {
+				slog.Warn("extra not linked", "file", relative, "err", err)
+				continue
+			}
+			res.Undo.Links = append(res.Undo.Links, relative)
 		}
 	}
 
@@ -213,6 +252,17 @@ func writeCover(libraryDir, relative string, image []byte, lang i18n.Lang) (bool
 		return false, err
 	}
 	return true, nil
+}
+
+func hardlink(libraryDir, linkDir, relative string, lang i18n.Lang) (string, error) {
+	link, err := safeDestination(linkDir, relative, lang)
+	if err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
+		return "", err
+	}
+	return link, os.Link(filepath.Join(libraryDir, filepath.FromSlash(relative)), link)
 }
 
 func safeDestination(libraryDir, relative string, lang i18n.Lang) (string, error) {

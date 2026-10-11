@@ -17,7 +17,9 @@ import (
 )
 
 type undoRecord struct {
-	Album int64 `json:"album"`
+	Album  int64  `json:"album"`
+	Input  string `json:"input,omitempty"`
+	Output string `json:"output,omitempty"`
 	apply.Undo
 }
 
@@ -45,7 +47,7 @@ func (a *App) keepUndo(id, albumID int64, u apply.Undo) {
 	if a.UndoDays() == 0 {
 		return
 	}
-	data, err := json.Marshal(undoRecord{Album: albumID, Undo: u})
+	data, err := json.Marshal(undoRecord{Album: albumID, Input: a.Input(), Output: a.Output(), Undo: u})
 	if err == nil {
 		err = os.MkdirAll(a.Cfg.BinDir, 0o755)
 	}
@@ -96,7 +98,13 @@ func (a *App) Undo(id int64) error {
 	if err := json.Unmarshal(data, &r); err != nil {
 		return err
 	}
-	if err := apply.Reverse(r.Undo, a.Cfg.Input, a.Cfg.Output, lang); err != nil {
+	if r.Input == "" {
+		r.Input = a.Input()
+	}
+	if r.Output == "" {
+		r.Output = a.Output()
+	}
+	if err := apply.Reverse(r.Undo, r.Input, r.Output, lang); err != nil {
 		return err
 	}
 
